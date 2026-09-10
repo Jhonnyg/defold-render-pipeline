@@ -1,0 +1,22 @@
+local drp = require("drp.drp")
+
+function init(self)
+	local state, err = drp.initialize()
+	if not state then
+		error(err)
+	end
+end
+
+function update(self, dt)
+	-- Quality transitions are committed at the start of a frame. Rendering
+	-- passes will be added here in later milestones.
+	drp.begin_frame(dt)
+end
+
+function final(self)
+	drp.finalize()
+end
+
+function on_reload(self)
+	drp.reload()
+end
