@@ -1,5 +1,6 @@
 [bootstrap]
-main_collection = /main/main.collectionc
+main_collection = /examples/quality_api_example.collectionc
+render = /drp/drp.renderc
 
 [script]
 shared_state = 1
@@ -21,4 +22,9 @@ scale_mode = stretch
 
 [project]
 title = defold-render-pipeline
+
+[drp]
+default_profile = balanced
+fallback_profile = compatibility
+strict_capabilities = 0
 

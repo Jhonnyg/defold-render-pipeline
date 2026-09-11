@@ -1,0 +1,5 @@
+name: "quality_api_example"
+instances {
+  id: "quality_api_example"
+  prototype: "/examples/quality_api_example.go"
+}
