@@ -1,6 +1,7 @@
 local capabilities = require("drp.capabilities")
 local quality = require("drp.quality")
 local resources = require("drp.resources")
+local utils = require("drp.utils")
 
 local M = {}
 
@@ -32,7 +33,7 @@ local function config_boolean(key, default_value)
 end
 
 local function snapshot_resolution(resolution)
-	return resolution and quality.copy(resolution) or nil
+	return resolution and utils.copy(resolution) or nil
 end
 
 local function snapshot_state()
@@ -42,8 +43,8 @@ local function snapshot_state()
 		requested_quality = state.pending and state.pending.requested or (state.active and state.active.requested or nil),
 		effective_quality = state.active and state.active.effective or nil,
 		pending_quality = state.pending and state.pending.requested or nil,
-		active_profile = state.active and quality.copy(state.active.profile) or nil,
-		capabilities = capabilities.copy(state.capabilities),
+		active_profile = state.active and utils.copy(state.active.profile) or nil,
+		capabilities = utils.copy(state.capabilities),
 	}
 end
 
@@ -57,7 +58,7 @@ end
 
 local function notify(transition)
 	for handle, callback in pairs(state.listeners) do
-		local ok, err = pcall(callback, quality.copy(transition))
+		local ok, err = pcall(callback, utils.copy(transition))
 		if not ok then
 			print(string.format("DRP quality listener %d failed: %s", handle, tostring(err)))
 		end
@@ -79,7 +80,7 @@ function M.initialize(options)
 	end
 
 	options = options or {}
-	local capability_overrides = quality.copy(options.capabilities or {})
+	local capability_overrides = utils.copy(options.capabilities or {})
 	if options.platform then
 		capability_overrides.platform = options.platform
 	end
@@ -90,7 +91,7 @@ function M.initialize(options)
 	end
 
 	state.capabilities = capabilities.detect(capability_overrides)
-	state.runtime_overrides = quality.copy(options.overrides or {})
+	state.runtime_overrides = utils.copy(options.overrides or {})
 	state.frame = 0
 
 	local requested = options.quality or config_string("drp.default_profile", "balanced")
@@ -167,7 +168,7 @@ function M.get_state()
 end
 
 function M.get_capabilities()
-	return capabilities.copy(state.capabilities)
+	return utils.copy(state.capabilities)
 end
 
 function M.set_capabilities(capability_overrides)
@@ -187,7 +188,7 @@ function M.get_effective_quality()
 end
 
 function M.get_active_profile()
-	return state.active and quality.copy(state.active.profile) or nil
+	return state.active and utils.copy(state.active.profile) or nil
 end
 
 function M.set_quality(name)
@@ -210,7 +211,7 @@ function M.set_runtime_overrides(overrides)
 	if not state.initialized then
 		return nil, "DRP must be initialized before runtime overrides can be changed"
 	end
-	state.runtime_overrides = quality.copy(overrides)
+	state.runtime_overrides = utils.copy(overrides)
 	return queue_requested_profile(state.active.requested)
 end
 

@@ -10,6 +10,7 @@ rendering feature.
 | `drp.quality` | Profile registry, inheritance, validation, platform overrides, and capability fallback. |
 | `drp.capabilities` | Platform detection and the contract for future native GPU capability data. |
 | `drp.resources` | Declaration-only resource ownership registry. It does not allocate GPU resources yet. |
+| `drp.utils` | Internal shared helpers for defensive copying, table merging, array detection, and string joining. |
 | `drp.profiles.*` | Built-in rendering-intent profiles. |
 
 The bundled render script currently initializes the pipeline and commits quality

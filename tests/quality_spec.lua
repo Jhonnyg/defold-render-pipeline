@@ -1,6 +1,7 @@
 local capabilities = require("drp.capabilities")
 local pipeline = require("drp.pipeline")
 local quality = require("drp.quality")
+local utils = require("drp.utils")
 
 local M = {}
 
@@ -9,6 +10,27 @@ local function assert_equal(expected, actual, message)
 end
 
 function M.run()
+	local source = {
+		nested = { value = 1 },
+		items = { "a", "b" },
+	}
+	local copied = utils.copy(source)
+	copied.nested.value = 2
+	assert_equal(1, source.nested.value, "deep copies do not mutate their source")
+
+	local merged = utils.merge({
+		nested = { inherited = true, overridden = false },
+		items = { "old" },
+	}, {
+		nested = { overridden = true },
+		items = { "new", "values" },
+	})
+	assert_equal(true, merged.nested.inherited, "map values are merged recursively")
+	assert_equal(true, merged.nested.overridden, "nested values override their destination")
+	assert_equal(2, #merged.items, "arrays replace rather than merge")
+	assert_equal("new", merged.items[1], "replacement arrays are copied")
+	assert_equal("a, b", utils.join(source.items, ", "), "array values can be joined")
+
 	local unknown_caps = capabilities.detect({ platform = "macos" })
 	local balanced = assert(quality.resolve("balanced", unknown_caps))
 	assert_equal("balanced", balanced.effective, "unknown capabilities are allowed in non-strict mode")

@@ -1,4 +1,5 @@
 local capabilities = require("drp.capabilities")
+local utils = require("drp.utils")
 
 local M = {}
 
@@ -14,52 +15,6 @@ local ALLOWED_PROFILE_KEYS = {
 	requirements = true,
 	settings = true,
 }
-
-local function copy(value, seen)
-	if type(value) ~= "table" then
-		return value
-	end
-	seen = seen or {}
-	if seen[value] then
-		return seen[value]
-	end
-	local result = {}
-	seen[value] = result
-	for key, child in pairs(value) do
-		result[copy(key, seen)] = copy(child, seen)
-	end
-	return result
-end
-
-local function is_array(value)
-	if type(value) ~= "table" then
-		return false
-	end
-	local count = 0
-	for key in pairs(value) do
-		if type(key) ~= "number" or key < 1 or key % 1 ~= 0 then
-			return false
-		end
-		count = count + 1
-	end
-	for index = 1, count do
-		if value[index] == nil then
-			return false
-		end
-	end
-	return count > 0
-end
-
-local function merge(destination, source)
-	for key, value in pairs(source or {}) do
-		if type(value) == "table" and type(destination[key]) == "table" and not is_array(value) then
-			merge(destination[key], value)
-		else
-			destination[key] = copy(value)
-		end
-	end
-	return destination
-end
 
 local function validate_name(name)
 	return type(name) == "string" and name:match("^[a-z][a-z0-9_%-]*$") ~= nil
@@ -90,7 +45,7 @@ local function validate_profile(name, profile)
 		return nil, "profile '" .. name .. "' settings must be a table"
 	end
 	if profile.requirements ~= nil then
-		if type(profile.requirements) ~= "table" or (next(profile.requirements) ~= nil and not is_array(profile.requirements)) then
+		if type(profile.requirements) ~= "table" or (next(profile.requirements) ~= nil and not utils.is_array(profile.requirements)) then
 			return nil, "profile '" .. name .. "' requirements must be an array"
 		end
 		for _, requirement in ipairs(profile.requirements) do
@@ -107,7 +62,7 @@ end
 
 local function resolve_definition(name, stack)
 	if resolved_cache[name] then
-		return copy(resolved_cache[name])
+		return utils.copy(resolved_cache[name])
 	end
 
 	local source = registry[name]
@@ -138,19 +93,19 @@ local function resolve_definition(name, stack)
 		end
 		resolved.description = source.description or parent.description
 		resolved.fallback = source.fallback or parent.fallback
-		resolved.requirements = copy(parent.requirements)
-		resolved.settings = copy(parent.settings)
-		resolved.platform_overrides = copy(parent.platform_overrides)
+		resolved.requirements = utils.copy(parent.requirements)
+		resolved.settings = utils.copy(parent.settings)
+		resolved.platform_overrides = utils.copy(parent.platform_overrides)
 	end
 
 	if source.requirements then
-		resolved.requirements = copy(source.requirements)
+		resolved.requirements = utils.copy(source.requirements)
 	end
-	merge(resolved.settings, source.settings or {})
-	merge(resolved.platform_overrides, source.platform_overrides or {})
+	utils.merge(resolved.settings, source.settings or {})
+	utils.merge(resolved.platform_overrides, source.platform_overrides or {})
 
 	stack[name] = nil
-	resolved_cache[name] = copy(resolved)
+	resolved_cache[name] = utils.copy(resolved)
 	return resolved
 end
 
@@ -160,12 +115,12 @@ local function apply_platform_override(profile, platform)
 		return profile
 	end
 	if override.settings then
-		merge(profile.settings, override.settings)
+		utils.merge(profile.settings, override.settings)
 	else
-		merge(profile.settings, override)
+		utils.merge(profile.settings, override)
 	end
 	if override.requirements then
-		profile.requirements = copy(override.requirements)
+		profile.requirements = utils.copy(override.requirements)
 	end
 	return profile
 end
@@ -182,20 +137,12 @@ local function missing_requirements(profile, detected)
 	return missing
 end
 
-local function join(values, separator)
-	local parts = {}
-	for index, value in ipairs(values) do
-		parts[index] = tostring(value)
-	end
-	return table.concat(parts, separator)
-end
-
 function M.register(name, profile)
 	local ok, err = validate_profile(name, profile)
 	if not ok then
 		return nil, err
 	end
-	local stored = copy(profile)
+	local stored = utils.copy(profile)
 	stored.name = name
 	registry[name] = stored
 	resolved_cache = {}
@@ -260,22 +207,18 @@ function M.resolve(requested, detected)
 		reasons[#reasons + 1] = string.format(
 			"profile '%s' requires unsupported capabilities: %s",
 			candidate,
-			join(missing, ", ")
+			utils.join(missing, ", ")
 		)
 		candidate = profile.fallback
 	end
 
-	return nil, "no supported fallback exists for quality profile '" .. requested .. "': " .. join(reasons, "; ")
+	return nil, "no supported fallback exists for quality profile '" .. requested .. "': " .. utils.join(reasons, "; ")
 end
 
 function M.with_settings_overrides(resolution, overrides)
-	local result = copy(resolution)
-	merge(result.profile.settings, overrides or {})
+	local result = utils.copy(resolution)
+	utils.merge(result.profile.settings, overrides or {})
 	return result
-end
-
-function M.copy(value)
-	return copy(value)
 end
 
 -- Keep these as explicit requires. Defold's build-time Lua dependency scanner

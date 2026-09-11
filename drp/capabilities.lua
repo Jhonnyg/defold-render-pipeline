@@ -1,3 +1,5 @@
+local utils = require("drp.utils")
+
 local M = {}
 
 local PLATFORM_ALIASES = {
@@ -11,33 +13,6 @@ local PLATFORM_ALIASES = {
 	web = "html5",
 	windows = "windows",
 }
-
-local function copy(value, seen)
-	if type(value) ~= "table" then
-		return value
-	end
-	seen = seen or {}
-	if seen[value] then
-		return seen[value]
-	end
-	local result = {}
-	seen[value] = result
-	for key, child in pairs(value) do
-		result[copy(key, seen)] = copy(child, seen)
-	end
-	return result
-end
-
-local function merge(destination, source)
-	for key, value in pairs(source or {}) do
-		if type(value) == "table" and type(destination[key]) == "table" then
-			merge(destination[key], value)
-		else
-			destination[key] = copy(value)
-		end
-	end
-	return destination
-end
 
 local function normalize_platform(name)
 	name = tostring(name or "unknown"):lower()
@@ -78,13 +53,9 @@ function M.detect(overrides)
 		limits = {},
 	}
 
-	merge(result, overrides or {})
+	utils.merge(result, overrides or {})
 	result.platform = normalize_platform(result.platform)
 	return result
-end
-
-function M.copy(value)
-	return copy(value)
 end
 
 function M.normalize_platform(name)

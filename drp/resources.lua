@@ -1,22 +1,8 @@
+local utils = require("drp.utils")
+
 local M = {}
 
 local declarations = {}
-
-local function copy(value, seen)
-	if type(value) ~= "table" then
-		return value
-	end
-	seen = seen or {}
-	if seen[value] then
-		return seen[value]
-	end
-	local result = {}
-	seen[value] = result
-	for key, child in pairs(value) do
-		result[copy(key, seen)] = copy(child, seen)
-	end
-	return result
-end
 
 ---Declares a named pipeline resource without allocating it.
 ---
@@ -36,7 +22,7 @@ function M.declare(name, descriptor)
 	if declarations[name] then
 		return nil, "resource '" .. name .. "' is already declared"
 	end
-	declarations[name] = copy(descriptor)
+	declarations[name] = utils.copy(descriptor)
 	return true
 end
 
@@ -49,7 +35,7 @@ function M.remove(name)
 end
 
 function M.get(name)
-	return declarations[name] and copy(declarations[name]) or nil
+	return declarations[name] and utils.copy(declarations[name]) or nil
 end
 
 function M.get_names()
