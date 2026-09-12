@@ -1,5 +1,5 @@
 [bootstrap]
-main_collection = /examples/quality_api_example.collectionc
+main_collection = /examples/quality_api/quality_api_example.collectionc
 render = /drp/drp.renderc
 
 [script]
@@ -22,9 +22,14 @@ scale_mode = stretch
 
 [project]
 title = defold-render-pipeline
+dependencies#0 = https://github.com/Jhonnyg/defold-vantage/archive/refs/tags/0.3.0.zip
+dependencies#1 = https://github.com/defold/asset-pbr/archive/refs/tags/0.1.0.zip
 
 [drp]
 default_profile = balanced
 fallback_profile = compatibility
 strict_capabilities = 0
+
+[input]
+game_binding = /vantage/vantage.input_bindingc
 

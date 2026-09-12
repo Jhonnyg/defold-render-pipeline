@@ -31,6 +31,32 @@ function M.run()
 	assert_equal("new", merged.items[1], "replacement arrays are copied")
 	assert_equal("a, b", utils.join(source.items, ", "), "array values can be joined")
 
+	local previous_native = rawget(_G, "drp_native")
+	_G.drp_native = {
+		get_capabilities = function()
+			return {
+				source = "test-native",
+				adapter = "test-adapter",
+				features = {
+					compute_shaders = true,
+					storage_buffers = true,
+				},
+				limits = {
+					max_storage_buffer_range = 4096,
+				},
+			}
+		end,
+	}
+	local native_caps = capabilities.detect({
+		features = { storage_buffers = false },
+	})
+	assert_equal("test-native", native_caps.source, "native provider is merged over the Lua baseline")
+	assert_equal("test-adapter", native_caps.adapter, "native adapter is reported")
+	assert_equal(true, native_caps.features.compute_shaders, "native features are reported")
+	assert_equal(false, native_caps.features.storage_buffers, "explicit overrides win over native features")
+	assert_equal(4096, native_caps.limits.max_storage_buffer_range, "native limits are reported")
+	_G.drp_native = previous_native
+
 	local unknown_caps = capabilities.detect({ platform = "macos" })
 	local balanced = assert(quality.resolve("balanced", unknown_caps))
 	assert_equal("balanced", balanced.effective, "unknown capabilities are allowed in non-strict mode")

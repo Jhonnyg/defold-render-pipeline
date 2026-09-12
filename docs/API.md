@@ -19,7 +19,7 @@ Supported options:
 | --- | --- | --- |
 | `quality` | string | Initial requested profile. |
 | `platform` | string | Overrides platform detection. Useful in tests. |
-| `capabilities` | table | Capability fields supplied by a future native provider or a test. |
+| `capabilities` | table | Capability fields applied over native detection, primarily for tests or application-enforced limits. |
 | `strict_capabilities` | boolean | Treat unknown required capabilities as unsupported. |
 | `overrides` | table | Runtime settings merged onto the resolved profile. |
 
@@ -122,8 +122,15 @@ Capability values use three states:
 | `false` | Confirmed unsupported. |
 | `nil` | Unknown to the current provider. |
 
-The Lua provider currently detects the platform only. A later native milestone
-will populate GPU feature and limit fields.
+When the native bridge is loaded, it reports the active adapter, compute and
+storage-buffer support, related graphics features, and device limits. Explicit
+values passed to `initialize()` or `set_capabilities()` take precedence. Fields
+that the public engine API cannot query yet, such as float render-target support,
+remain `nil`.
+
+The low-level storage-buffer bridge is internal infrastructure for DRP feature
+modules rather than part of the stable application-facing facade. See
+[`NATIVE_BRIDGE.md`](NATIVE_BRIDGE.md) for its contract.
 
 ## Notifications
 

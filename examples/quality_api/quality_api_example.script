@@ -1,0 +1,131 @@
+local drp = require("drp.drp")
+
+local ACTION_TOUCH = hash("touch")
+local EXAMPLE_PROFILE = "example_cinematic"
+local PROFILE_ORDER = {
+	"compatibility",
+	"balanced",
+	"high",
+	"ultra",
+	EXAMPLE_PROFILE,
+}
+
+local function print_profile_names()
+	print("DRP registered quality profiles:")
+	for _, name in ipairs(drp.get_profile_names()) do
+		print("  - " .. name)
+	end
+end
+
+local function print_state(prefix)
+	local state = drp.get_state()
+	print(string.format(
+		"%s requested=%s effective=%s pending=%s frame=%d",
+		prefix,
+		tostring(state.requested_quality),
+		tostring(state.effective_quality),
+		tostring(state.pending_quality),
+		state.frame
+	))
+end
+
+local function find_profile_index(name)
+	for index, profile_name in ipairs(PROFILE_ORDER) do
+		if profile_name == name then
+			return index
+		end
+	end
+	return 1
+end
+
+local function register_example_profile()
+	local ok, err = drp.register_profile(EXAMPLE_PROFILE, {
+		name = EXAMPLE_PROFILE,
+		description = "Example project profile derived from the high preset.",
+		extends = "high",
+		fallback = "balanced",
+		settings = {
+			rendering = {
+				render_scale = 0.9,
+			},
+			shadows = {
+				max_shadowed_local_lights = 8,
+			},
+		},
+	})
+	assert(ok, err)
+end
+
+function init(self)
+	-- The bundled DRP render script initializes the pipeline before this game
+	-- object. Calling initialize here is safe because the API is idempotent and
+	-- also makes this example usable with a custom host render script.
+	local state, err = drp.initialize()
+	assert(state, err)
+
+	register_example_profile()
+	print_profile_names()
+
+	self.quality_listener = assert(drp.on_quality_changed(function(transition)
+		print(string.format(
+			"DRP quality activated on frame %d: %s -> %s",
+			transition.frame,
+			transition.previous and transition.previous.effective or "none",
+			transition.current.effective
+		))
+		for _, reason in ipairs(transition.current.reasons) do
+			print("  fallback reason: " .. reason)
+		end
+	end))
+
+	-- Runtime overrides are independent of the selected profile. This request is
+	-- committed by drp.begin_frame() in the render script.
+	local resolution, override_err = drp.set_runtime_overrides({
+		rendering = {
+			render_scale = 0.95,
+		},
+	})
+	assert(resolution, override_err)
+
+	self.profile_index = find_profile_index(drp.get_requested_quality())
+	msg.post(".", "acquire_input_focus")
+
+	print("DRP quality API example initialized. Click to cycle quality profiles.")
+	print_state("Initial state:")
+end
+
+function final(self)
+	if self.quality_listener then
+		drp.remove_quality_listener(self.quality_listener)
+	end
+
+	-- Queue a built-in profile before removing the custom definition so this
+	-- collection can also be unloaded while the application keeps running.
+	if drp.get_requested_quality() == EXAMPLE_PROFILE then
+		drp.set_quality("balanced")
+	end
+	drp.unregister_profile(EXAMPLE_PROFILE)
+	msg.post(".", "release_input_focus")
+end
+
+function on_input(self, action_id, action)
+	if action_id ~= ACTION_TOUCH or not action.pressed then
+		return false
+	end
+
+	self.profile_index = self.profile_index % #PROFILE_ORDER + 1
+	local requested = PROFILE_ORDER[self.profile_index]
+	local resolution, err = drp.set_quality(requested)
+	if not resolution then
+		print("DRP quality request failed: " .. tostring(err))
+		return true
+	end
+
+	print(string.format(
+		"Queued DRP quality '%s' (effective after fallback: '%s')",
+		resolution.requested,
+		resolution.effective
+	))
+	print_state("Queued state:")
+	return true
+end

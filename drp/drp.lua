@@ -4,6 +4,8 @@ local quality = require("drp.quality")
 ---@class drp.CapabilityRecord
 ---@field platform string Normalized platform name, such as `macos`, `windows`, or `html5`.
 ---@field source string Name of the provider that produced this record.
+---@field adapter string|nil Active native graphics adapter, such as `vulkan`, `webgpu`, or `opengl`.
+---@field native_bridge_version integer|nil Native bridge API version when the bridge is loaded.
 ---@field strict boolean Whether unknown required capabilities are treated as unsupported.
 ---@field features table<string, boolean|nil> Supported (`true`), unsupported (`false`), or unknown (`nil`) GPU features.
 ---@field limits table<string, number> GPU limits reported by the active capability provider.
@@ -48,7 +50,7 @@ local quality = require("drp.quality")
 local M = {
 	---Semantic version of the public DRP Lua API.
 	---@type string
-	VERSION = "0.1.0",
+	VERSION = "0.2.0",
 }
 
 ---Initializes the DRP singleton.
@@ -115,8 +117,8 @@ end
 ---Replaces detected capability values and re-resolves the active request.
 ---
 ---The resulting quality resolution is queued until the next frame boundary.
----This function is primarily the integration point for a future native GPU
----capability provider and for tests.
+---Explicit values override both the Lua baseline and native GPU provider. This
+---function is primarily useful for tests and application-enforced limits.
 ---@param capability_overrides table Capability record fields to apply over Lua baseline detection.
 ---@return drp.QualityResolution|nil resolution Queued resolution, or `nil` on failure.
 ---@return string|nil error Error message when DRP is uninitialized or resolution fails.

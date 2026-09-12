@@ -5,10 +5,10 @@ extension for Defold. Its intended scope includes Forward+ clustered lighting,
 PBR materials, shadows, HDR, ambient occlusion, depth of field, and rendering
 diagnostics.
 
-The current milestone deliberately implements **configuration only**. It
-contains the package structure, public Lua facade, pipeline lifecycle, quality
-profiles, capability-based fallback, and resource declarations. It does not yet
-render scene content or implement any advanced rendering feature.
+The current milestone implements the configuration foundation and the first
+native bridge. The bridge reports real graphics capabilities and exposes the
+generic storage-buffer lifecycle needed by later compute-driven features. It
+does not yet render scene content or implement an advanced rendering feature.
 
 ## Current API
 
@@ -45,7 +45,9 @@ Profiles describe future rendering intent. The settings do not activate
 rendering features in this milestone.
 
 Read [the quality-profile documentation](docs/QUALITY_PROFILES.md) and
-[public API reference](docs/API.md) for details.
+[public API reference](docs/API.md) for details. Native bridge requirements and
+its internal Lua surface are documented in
+[the native bridge reference](docs/NATIVE_BRIDGE.md).
 
 The runnable [quality API example](examples/README.md) demonstrates profile
 registration, runtime overrides, quality requests, and transition callbacks.
@@ -68,8 +70,8 @@ mode treats both unknown and unsupported requirements as unavailable.
 
 ## Status
 
-The project is establishing stable configuration and lifecycle contracts before
-porting code from the exploratory clustered renderer. See the design documents
-in `docs/` for the intended architecture and next steps.
+The configuration contracts and native SSBO bridge are active. The next step is
+to build extension-owned clustered resources and passes on top of those generic
+primitives. See the design documents in `docs/` for the intended architecture.
 
 ---

@@ -1,4 +1,5 @@
 local capabilities = require("drp.capabilities")
+local native = require("drp.native")
 local quality = require("drp.quality")
 local resources = require("drp.resources")
 local utils = require("drp.utils")
@@ -114,6 +115,7 @@ end
 
 function M.finalize()
 	resources.reset()
+	native.reset()
 	state.initialized = false
 	state.frame = 0
 	state.capabilities = nil
