@@ -3,6 +3,7 @@ local M = {}
 -- DRP owns the feature set. Add built-in feature modules here in execution
 -- order as they are implemented.
 local feature_modules = {
+	require("drp.features.clustered.clustered"),
 }
 
 local function invoke(hook_name, context, ...)

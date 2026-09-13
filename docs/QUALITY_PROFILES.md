@@ -28,6 +28,12 @@ The built-in chain is:
 compatibility <- balanced <- high <- ultra
 ```
 
+`balanced`, `high`, and `ultra` currently select the Forward+ clustered path.
+All three cap `max_lights_per_cluster` at 64 because the first implementation
+declares a 64-entry view of the engine-owned `LightBuffer` UBO. The engine may
+allocate a larger UBO, but it must not allocate a smaller one than the shader
+block being bound. The bundled project therefore sets `[light] max_count = 64`.
+
 Inheritance cycles and missing parents are reported during resolution.
 
 ## Capability fallback

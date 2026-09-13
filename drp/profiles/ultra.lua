@@ -10,7 +10,8 @@ return {
 		lighting = {
 			cluster_tile_size = 48,
 			cluster_z_slices = 32,
-			max_lights_per_cluster = 256,
+			-- Increase this together with the clustered shader LightBuffer ABI.
+			max_lights_per_cluster = 64,
 		},
 		shadows = {
 			quality = "pcss_high",

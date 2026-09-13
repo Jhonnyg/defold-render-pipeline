@@ -5,10 +5,11 @@ extension for Defold. Its intended scope includes Forward+ clustered lighting,
 PBR materials, shadows, HDR, ambient occlusion, depth of field, and rendering
 diagnostics.
 
-The current milestone implements the configuration foundation and the first
-native bridge. The bridge reports real graphics capabilities and exposes the
-generic storage-buffer lifecycle needed by later compute-driven features. It
-does not yet render scene content or implement an advanced rendering feature.
+The current milestone implements the configuration foundation, native
+storage-buffer bridge, and the first Forward+ clustered-lighting feature. The
+cluster grid and per-cluster light lists are extension-owned SSBOs. Punctual
+light data remains in Defold's engine-owned `LightBuffer` UBO and is consumed
+directly by both the assignment compute shader and clustered PBR materials.
 
 ## Current API
 
@@ -41,15 +42,18 @@ render script.
 - `high`: higher light, shadow, and post-processing budgets.
 - `ultra`: experimental maximum-quality target.
 
-Profiles describe future rendering intent. The settings do not activate
-rendering features in this milestone.
+The `balanced`, `high`, and `ultra` profiles activate clustered lighting. The
+`compatibility` profile renders conventional `model` materials without compute
+or storage-buffer requirements. Other profile settings still describe future
+rendering intent.
 
 Read [the quality-profile documentation](docs/QUALITY_PROFILES.md) and
 [public API reference](docs/API.md) for details. Native bridge requirements and
 its internal Lua surface are documented in
 [the native bridge reference](docs/NATIVE_BRIDGE.md).
 
-The runnable [quality API example](examples/README.md) demonstrates profile
+The runnable [clustered renderer example](examples/README.md) is the default
+bootstrap collection. A separate quality API example demonstrates profile
 registration, runtime overrides, quality requests, and transition callbacks.
 
 ## Project configuration
@@ -57,6 +61,12 @@ registration, runtime overrides, quality requests, and transition callbacks.
 ```ini
 [bootstrap]
 render = /drp/drp.renderc
+
+[light]
+max_count = 64
+
+[shader]
+exclude_gles_sm100 = 1
 
 [drp]
 default_profile = balanced
@@ -70,8 +80,9 @@ mode treats both unknown and unsupported requirements as unavailable.
 
 ## Status
 
-The configuration contracts and native SSBO bridge are active. The next step is
-to build extension-owned clustered resources and passes on top of those generic
-primitives. See the design documents in `docs/` for the intended architecture.
+The configuration contracts, native SSBO bridge, and initial clustered
+renderer are active. Shadows, HDR, post-processing, and production fallback
+materials remain future work. See [clustered lighting](docs/CLUSTERED_LIGHTING.md)
+for the current pass and resource contract.
 
 ---

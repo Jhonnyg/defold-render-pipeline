@@ -1,9 +1,15 @@
 [bootstrap]
-main_collection = /examples/quality_api/quality_api_example.collectionc
+main_collection = /examples/clustered_renderer/clustered_renderer.collectionc
 render = /drp/drp.renderc
+
+[light]
+max_count = 64
 
 [script]
 shared_state = 1
+
+[shader]
+exclude_gles_sm100 = 1
 
 [display]
 width = 960
@@ -32,4 +38,3 @@ strict_capabilities = 0
 
 [input]
 game_binding = /vantage/vantage.input_bindingc
-

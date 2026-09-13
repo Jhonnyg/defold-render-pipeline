@@ -1,4 +1,7 @@
 # Shaders
 
-Shared shader libraries and feature shaders will be added with their owning
-render features. This milestone intentionally includes no rendering shaders.
+Shared shader libraries live here; compute programs remain with their owning
+feature. The current files implement clustered PBR opaque, masked, and
+transparent variants plus linear-depth prepass fragments. Their public material
+usage and internal buffer contract are documented in
+`/docs/CLUSTERED_LIGHTING.md`.

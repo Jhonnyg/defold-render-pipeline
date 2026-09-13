@@ -39,5 +39,7 @@ framework. There is no runtime registration, hook validation, protected-call
 wrapper, or special hook return protocol. Applications use the stable `drp.drp`
 facade and quality settings instead of manipulating the feature list.
 
-The feature directories still contain no rendering implementations. Clustered
-lighting will be the first feature added to the static list.
+`clustered/clustered.lua` is the first implementation. It activates for
+profiles whose `rendering.path` is `forward_plus`, owns the cluster SSBOs and
+linear-depth target, and submits the depth, compute, and clustered material
+passes. See `docs/CLUSTERED_LIGHTING.md` for its resource contract.

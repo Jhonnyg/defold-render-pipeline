@@ -1,0 +1,7 @@
+data {
+  struct {
+    fields { key: "color" value { list { values { number: 0.08 } values { number: 0.3 } values { number: 1.0 } } } }
+    fields { key: "intensity" value { number: 7.0 } }
+    fields { key: "range" value { number: 8.0 } }
+  }
+}
