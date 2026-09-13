@@ -32,6 +32,7 @@ local quality = require("drp.quality")
 ---@field pending_quality string|nil Profile waiting for the next frame boundary.
 ---@field active_profile drp.Profile|nil Defensive copy of the active profile.
 ---@field capabilities drp.CapabilityRecord|nil Defensive copy of current capabilities.
+---@field viewport table|nil Current render viewport with `width` and `height`, or nil before the first frame.
 
 ---@class drp.QualityTransition
 ---@field frame integer Frame on which the transition became active.

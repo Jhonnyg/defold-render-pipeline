@@ -1,22 +1,32 @@
-local drp = require("drp.drp")
+local pipeline = require("drp.pipeline")
 
 function init(self)
-	local state, err = drp.initialize()
+	local state, err = pipeline.initialize()
 	if not state then
 		error(err)
 	end
 end
 
 function update(self, dt)
-	-- Quality transitions are committed at the start of a frame. Rendering
-	-- passes will be added here in later milestones.
-	drp.begin_frame(dt)
+	local _, frame_error = pipeline.begin_frame(
+		dt,
+		render.get_window_width(),
+		render.get_window_height()
+	)
+	if frame_error then
+		error(frame_error)
+	end
+
+	local rendered, render_error = pipeline.render()
+	if not rendered then
+		error(render_error)
+	end
 end
 
 function final(self)
-	drp.finalize()
+	pipeline.finalize()
 end
 
 function on_reload(self)
-	drp.reload()
+	pipeline.reload()
 end

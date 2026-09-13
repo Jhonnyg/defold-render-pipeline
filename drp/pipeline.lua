@@ -1,4 +1,5 @@
 local capabilities = require("drp.capabilities")
+local features = require("drp.features")
 local native = require("drp.native")
 local quality = require("drp.quality")
 local resources = require("drp.resources")
@@ -9,12 +10,16 @@ local M = {}
 local state = {
 	initialized = false,
 	frame = 0,
+	frame_dt = 0,
+	frame_transition = nil,
 	capabilities = nil,
 	active = nil,
 	pending = nil,
 	runtime_overrides = {},
 	listeners = {},
 	next_listener_handle = 1,
+	viewport = nil,
+	feature_context = nil,
 }
 
 local function config_string(key, default_value)
@@ -46,6 +51,19 @@ local function snapshot_state()
 		pending_quality = state.pending and state.pending.requested or nil,
 		active_profile = state.active and utils.copy(state.active.profile) or nil,
 		capabilities = utils.copy(state.capabilities),
+		viewport = utils.copy(state.viewport),
+	}
+end
+
+local function feature_context(dt, transition)
+	return {
+		frame = state.frame,
+		dt = dt ~= nil and dt or state.frame_dt,
+		quality = state.active,
+		profile = state.active and state.active.profile or nil,
+		capabilities = state.capabilities,
+		viewport = state.viewport,
+		transition = transition or state.frame_transition,
 	}
 end
 
@@ -94,6 +112,8 @@ function M.initialize(options)
 	state.capabilities = capabilities.detect(capability_overrides)
 	state.runtime_overrides = utils.copy(options.overrides or {})
 	state.frame = 0
+	state.frame_dt = 0
+	state.frame_transition = nil
 
 	local requested = options.quality or config_string("drp.default_profile", "balanced")
 	local resolution, err = resolve(requested)
@@ -110,20 +130,31 @@ function M.initialize(options)
 	state.active = resolution
 	state.pending = nil
 	state.initialized = true
+	state.viewport = nil
+	state.feature_context = feature_context(0)
+
+	features.initialize(state.feature_context)
 	return snapshot_state()
 end
 
 function M.finalize()
+	if state.initialized then
+		features.finalize(state.feature_context or feature_context(0))
+	end
 	resources.reset()
 	native.reset()
 	state.initialized = false
 	state.frame = 0
+	state.frame_dt = 0
+	state.frame_transition = nil
 	state.capabilities = nil
 	state.active = nil
 	state.pending = nil
 	state.runtime_overrides = {}
 	state.listeners = {}
 	state.next_listener_handle = 1
+	state.viewport = nil
+	state.feature_context = nil
 	return true
 end
 
@@ -134,31 +165,65 @@ function M.reload()
 	return queue_requested_profile(state.active.requested)
 end
 
-function M.begin_frame(dt)
+function M.begin_frame(dt, width, height)
 	if not state.initialized then
 		local initialized, err = M.initialize()
 		if not initialized then
 			return nil, err
 		end
 	end
-
-	state.frame = state.frame + 1
-	if not state.pending then
-		return nil
+	if width ~= nil or height ~= nil then
+		if type(width) ~= "number" or type(height) ~= "number" or width <= 0 or height <= 0 then
+			return nil, "frame viewport width and height must be positive numbers"
+		end
 	end
 
-	local previous = state.active
-	state.active = state.pending
-	state.pending = nil
+	state.frame = state.frame + 1
+	state.frame_dt = dt or 0
+	state.frame_transition = nil
+	local transition = nil
+	if state.pending then
+		local previous = state.active
+		state.active = state.pending
+		state.pending = nil
+		transition = {
+			frame = state.frame,
+			dt = dt or 0,
+			previous = snapshot_resolution(previous),
+			current = snapshot_resolution(state.active),
+		}
+		state.frame_transition = transition
+	end
 
-	local transition = {
-		frame = state.frame,
-		dt = dt or 0,
-		previous = snapshot_resolution(previous),
-		current = snapshot_resolution(state.active),
-	}
-	notify(transition)
+	local viewport_changed = false
+	if width ~= nil or height ~= nil then
+		if not state.viewport or width ~= state.viewport.width or height ~= state.viewport.height then
+			state.viewport = {
+				width = width,
+				height = height,
+			}
+			viewport_changed = true
+		end
+	end
+
+	state.feature_context = feature_context(dt, transition)
+	if transition then
+		features.on_profile_changed(state.feature_context, transition)
+		notify(transition)
+	end
+	if viewport_changed then
+		features.resize(state.feature_context, width, height)
+	end
+	features.begin_frame(state.feature_context)
 	return transition
+end
+
+function M.render()
+	if not state.initialized then
+		return nil, "DRP must be initialized before rendering"
+	end
+	features.render(state.feature_context or feature_context())
+	return true
 end
 
 function M.is_initialized()

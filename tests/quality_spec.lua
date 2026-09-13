@@ -106,8 +106,17 @@ function M.run()
 	assert_equal("balanced", request.requested, "request is queued")
 	assert_equal("balanced", pipeline.get_requested_quality(), "pending request is observable")
 	assert_equal("compatibility", pipeline.get_effective_quality(), "active profile is unchanged before frame boundary")
-	local transition = assert(pipeline.begin_frame(1 / 60))
+	local transition = assert(pipeline.begin_frame(1 / 60, 800, 600))
 	assert_equal("balanced", transition.current.effective, "request activates at frame boundary")
+	assert(pipeline.render())
+	local pipeline_state = pipeline.get_state()
+	assert_equal(800, pipeline_state.viewport.width, "frame width is retained")
+	assert_equal(600, pipeline_state.viewport.height, "frame height is retained")
+
+	local no_transition, frame_error = pipeline.begin_frame(1 / 60, 800, 600)
+	assert_equal(nil, no_transition, "a stable frame has no quality transition")
+	assert_equal(nil, frame_error, "a stable frame succeeds")
+
 	pipeline.finalize()
 
 	return true
