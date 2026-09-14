@@ -31,6 +31,11 @@ void main()
     PBRLightData data = calculate_pbr_light_data(params, material, var_position.xyz);
     out_fragColor = vec4(to_output(composite_pbr_light_data(data)), data.alpha);
 #else
+    if (cluster_debug.x > 0.5)
+    {
+        out_fragColor = drp_cluster_debug_color(var_position.xyz);
+        return;
+    }
     ClusteredLightData data = calculate_clustered_pbr_light_data(params, material,
         var_position.xyz);
     out_fragColor = vec4(to_output(composite_clustered_pbr(data)), data.alpha);

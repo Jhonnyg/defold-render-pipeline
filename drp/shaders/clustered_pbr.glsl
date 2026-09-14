@@ -8,23 +8,11 @@
 // The including root shader defines MAX_LIGHT_COUNT before asset-pbr imports
 // the engine-owned LightBuffer. The engine buffer may be larger, never smaller.
 #include "/defold-pbr/shaders/pbr_brdf.glsl"
+#include "/drp/shaders/clustered_common.glsl"
 
-layout(std430, set = 1, binding = 2) readonly buffer ClusterMetadataBuffer
-{
-    uvec2 cluster_metadata[];
-};
-
-layout(std430, set = 1, binding = 3) readonly buffer ClusterLightIndicesBuffer
+layout(std430, set = 2, binding = 3) readonly buffer ClusterLightIndicesBuffer
 {
     uint cluster_light_indices[];
-};
-
-uniform fs_drp_clustered
-{
-    mat4 cluster_projection;
-    vec4 cluster_grid;
-    vec4 cluster_screen;
-    vec4 cluster_z_params;
 };
 
 struct ClusteredLightData
@@ -103,27 +91,6 @@ ClusteredLightData evaluate_clustered_light(Light light, MaterialInfo material,
     return data;
 }
 
-uint clustered_index(vec3 fragment_position)
-{
-    uvec3 dimensions = uvec3(cluster_grid.xyz);
-
-    // Project view-space position back to the same pixel grid used when the
-    // compute pass built cluster bounds. Clamp edge pixels before integer cast.
-    vec4 clip = cluster_projection * vec4(fragment_position, 1.0);
-    vec2 ndc = clip.xy / max(abs(clip.w), PBR_EPSILON);
-    vec2 pixel = (ndc * 0.5 + 0.5) * cluster_screen.xy;
-    pixel = clamp(pixel, vec2(0.0), cluster_screen.xy - vec2(0.5));
-    uvec2 tile = min(uvec2(pixel / cluster_screen.z), dimensions.xy - 1u);
-
-    // Invert the logarithmic slice equation used by cluster_build.cp.
-    float depth = max(-fragment_position.z, cluster_z_params.x);
-    float slice = log(depth / cluster_z_params.x) /
-        log(cluster_z_params.y / cluster_z_params.x);
-    uint z = min(uint(clamp(slice, 0.0, 0.999999) * float(dimensions.z)),
-        dimensions.z - 1u);
-    return tile.x + dimensions.x * (tile.y + dimensions.y * z);
-}
-
 ClusteredLightData calculate_clustered_pbr_light_data(PBRParams params,
     MaterialInfo material, vec3 fragment_position)
 {
@@ -138,7 +105,7 @@ ClusteredLightData calculate_clustered_pbr_light_data(PBRParams params,
     {
         // Metadata stores the offset and count of this cluster's range inside
         // the global packed index buffer. Indices address the engine UBO.
-        uvec2 entry = cluster_metadata[clustered_index(fragment_position)];
+        uvec2 entry = cluster_metadata[drp_cluster_index(fragment_position)];
         for (uint index = 0u; index < entry.y; ++index)
         {
             uint light_index = cluster_light_indices[entry.x + index];

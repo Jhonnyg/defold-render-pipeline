@@ -5,11 +5,13 @@ local M = {}
 
 local MAX_SHADER_LIGHTS = 64
 local MAX_LIGHTS_PER_CLUSTER = 64
-local STORAGE_SET = 1
+-- Material textures and uniform blocks occupy descriptor set 1. Keep all
+-- extension-owned storage buffers in set 2 so their explicit bindings cannot
+-- collide with resources contributed by asset-pbr or another material include.
+local STORAGE_SET = 2
 
 local BUFFER_DESCRIPTORS = {
 	{ name = "cluster_bounds", binding = 0, bytes_per_cluster = 32 },
-	{ name = "cluster_depth_ranges", binding = 1, bytes_per_tile = 16 },
 	{ name = "cluster_metadata", binding = 2, bytes_per_cluster = 8 },
 	{ name = "cluster_light_indices", binding = 3, bytes_per_index = 4 },
 	{ name = "cluster_counters", binding = 4, fixed_size = 16 },
@@ -22,7 +24,7 @@ local state = {
 	render_available = false,
 	warned = false,
 	buffers = {},
-	depth_target = nil,
+	buffer_sizes = {},
 	width = 0,
 	height = 0,
 	grid_x = 0,
@@ -31,6 +33,11 @@ local state = {
 	tile_size = 0,
 	max_lights_per_cluster = 0,
 	index_capacity = 0,
+	bounds_dirty = true,
+	projection = nil,
+	near_z = 0,
+	far_z = 0,
+	debug_description_printed = false,
 }
 
 local function ceil_div(value, divisor)
@@ -63,13 +70,6 @@ local function warn_once(message)
 	end
 end
 
-local function delete_depth_target()
-	if state.depth_target and state.render_available then
-		render.delete_render_target(state.depth_target)
-		state.depth_target = nil
-	end
-end
-
 local function delete_buffers()
 	if native.is_available() then
 		for _, descriptor in ipairs(BUFFER_DESCRIPTORS) do
@@ -81,10 +81,10 @@ local function delete_buffers()
 		end
 	end
 	state.buffers = {}
+	state.buffer_sizes = {}
 end
 
 local function reset_allocations()
-	delete_depth_target()
 	delete_buffers()
 	state.available = false
 	state.width = 0
@@ -95,58 +95,36 @@ local function reset_allocations()
 	state.tile_size = 0
 	state.max_lights_per_cluster = 0
 	state.index_capacity = 0
+	state.bounds_dirty = true
+	state.projection = nil
+	state.near_z = 0
+	state.far_z = 0
+	state.debug_description_printed = false
 end
 
-local function buffer_size(descriptor, cluster_count, tile_count, index_capacity)
+local function buffer_size(descriptor, cluster_count, index_capacity)
 	if descriptor.fixed_size then
 		return descriptor.fixed_size
 	elseif descriptor.bytes_per_cluster then
 		return descriptor.bytes_per_cluster * cluster_count
-	elseif descriptor.bytes_per_tile then
-		return descriptor.bytes_per_tile * tile_count
 	end
 	return descriptor.bytes_per_index * index_capacity
 end
 
-local function create_depth_target(width, height)
-	local color = {
-		format = graphics.TEXTURE_FORMAT_RGBA32F,
-		width = width,
-		height = height,
-		min_filter = graphics.TEXTURE_FILTER_NEAREST,
-		mag_filter = graphics.TEXTURE_FILTER_NEAREST,
-		u_wrap = graphics.TEXTURE_WRAP_CLAMP_TO_EDGE,
-		v_wrap = graphics.TEXTURE_WRAP_CLAMP_TO_EDGE,
-		flags = render.TEXTURE_BIT,
-	}
-	local depth = {
-		format = graphics.TEXTURE_FORMAT_DEPTH,
-		width = width,
-		height = height,
-		min_filter = graphics.TEXTURE_FILTER_NEAREST,
-		mag_filter = graphics.TEXTURE_FILTER_NEAREST,
-		u_wrap = graphics.TEXTURE_WRAP_CLAMP_TO_EDGE,
-		v_wrap = graphics.TEXTURE_WRAP_CLAMP_TO_EDGE,
-		flags = render.TEXTURE_BIT,
-	}
-	return render.render_target("drp_cluster_depth", {
-		[graphics.BUFFER_TYPE_COLOR0_BIT] = color,
-		[graphics.BUFFER_TYPE_DEPTH_BIT] = depth,
-	})
-end
-
 local function configure(context, width, height)
-	reset_allocations()
 	if not state.enabled or width < 1 or height < 1 then
+		state.available = false
 		return
 	end
 	if not native.is_available() then
+		state.available = false
 		warn_once("the native storage-buffer bridge is unavailable")
 		return
 	end
 
 	local features = context.capabilities and context.capabilities.features or {}
 	if features.compute_shaders == false or features.storage_buffers == false then
+		state.available = false
 		warn_once("compute shaders or storage buffers are unsupported")
 		return
 	end
@@ -159,8 +137,7 @@ local function configure(context, width, height)
 
 	local grid_x = ceil_div(width, tile_size)
 	local grid_y = ceil_div(height, tile_size)
-	local tile_count = grid_x * grid_y
-	local cluster_count = tile_count * grid_z
+	local cluster_count = grid_x * grid_y * grid_z
 	local index_capacity = cluster_count * max_lights
 	local maximum_range = context.capabilities and context.capabilities.limits and
 		context.capabilities.limits.max_storage_buffer_range or nil
@@ -168,37 +145,48 @@ local function configure(context, width, height)
 		index_capacity = math.min(index_capacity, math.floor(maximum_range / 4))
 	end
 
-	local created = {}
+	local required_sizes = {}
 	for _, descriptor in ipairs(BUFFER_DESCRIPTORS) do
-		local size = buffer_size(descriptor, cluster_count, tile_count, index_capacity)
+		local size = buffer_size(descriptor, cluster_count, index_capacity)
+		required_sizes[descriptor.name] = size
 		if maximum_range and maximum_range > 0 and size > maximum_range then
-			for _, handle in ipairs(created) do
-				native.delete_storage_buffer(handle)
-			end
-			state.buffers = {}
+			state.available = false
 			warn_once(descriptor.name .. " exceeds the device storage-buffer limit")
 			return
 		end
-		local ok, handle = pcall(native.create_storage_buffer, size, native.BUFFER_USAGE_DYNAMIC_DRAW)
-		if not ok then
-			for _, created_handle in ipairs(created) do
-				native.delete_storage_buffer(created_handle)
-			end
-			state.buffers = {}
-			warn_once(tostring(handle))
-			return
-		end
-		state.buffers[descriptor.name] = handle
-		created[#created + 1] = handle
 	end
 
-	local target_ok, target = pcall(create_depth_target, width, height)
-	if not target_ok then
-		delete_buffers()
-		warn_once("failed to create the linear-depth render target: " .. tostring(target))
-		return
+	for _, descriptor in ipairs(BUFFER_DESCRIPTORS) do
+		local name = descriptor.name
+		local size = required_sizes[name]
+		local handle = state.buffers[name]
+		local ok, result
+		if handle then
+			if state.buffer_sizes[name] ~= size then
+				ok, result = pcall(native.resize_storage_buffer, handle, size,
+					native.BUFFER_USAGE_DYNAMIC_DRAW)
+			else
+				ok, result = true, true
+			end
+		else
+			ok, result = pcall(native.create_storage_buffer, size,
+				native.BUFFER_USAGE_DYNAMIC_DRAW)
+			if ok then
+				handle = result
+				state.buffers[name] = handle
+			end
+		end
+		if not ok or not result then
+			reset_allocations()
+			warn_once("failed to allocate " .. name .. ": " .. tostring(result))
+			return
+		end
+		state.buffer_sizes[name] = size
 	end
-	state.depth_target = target
+
+	local grid_changed = state.width ~= width or state.height ~= height or
+		state.grid_x ~= grid_x or state.grid_y ~= grid_y or state.grid_z ~= grid_z or
+		state.tile_size ~= tile_size
 	state.width = width
 	state.height = height
 	state.grid_x = grid_x
@@ -207,8 +195,16 @@ local function configure(context, width, height)
 	state.tile_size = tile_size
 	state.max_lights_per_cluster = max_lights
 	state.index_capacity = index_capacity
+	state.bounds_dirty = state.bounds_dirty or grid_changed
 	state.available = true
 	state.warned = false
+	if not state.debug_description_printed then
+		print(string.format(
+			"DRP clustered heatmap: %dx%dx%d clusters; gray=empty, blue-to-red=increasing light count, magenta=overflow",
+			grid_x, grid_y, grid_z
+		))
+		state.debug_description_printed = true
+	end
 end
 
 local function bind_cluster_buffers()
@@ -217,7 +213,27 @@ local function bind_cluster_buffers()
 	end
 end
 
-local function make_constants(view, projection, near_z, far_z)
+local function matrix_changed(a, b)
+	if not a or not b then
+		return true
+	end
+	return a.m00 ~= b.m00 or a.m01 ~= b.m01 or a.m02 ~= b.m02 or a.m03 ~= b.m03 or
+		a.m10 ~= b.m10 or a.m11 ~= b.m11 or a.m12 ~= b.m12 or a.m13 ~= b.m13 or
+		a.m20 ~= b.m20 or a.m21 ~= b.m21 or a.m22 ~= b.m22 or a.m23 ~= b.m23 or
+		a.m30 ~= b.m30 or a.m31 ~= b.m31 or a.m32 ~= b.m32 or a.m33 ~= b.m33
+end
+
+local function update_projection(projection, near_z, far_z)
+	if matrix_changed(state.projection, projection) or
+		state.near_z ~= near_z or state.far_z ~= far_z then
+		state.projection = vmath.matrix4(projection)
+		state.near_z = near_z
+		state.far_z = far_z
+		state.bounds_dirty = true
+	end
+end
+
+local function make_constants(context, view, projection, near_z, far_z)
 	local common = render.constant_buffer()
 	common.cluster_projection = projection
 	common.cluster_grid = vmath.vector4(
@@ -233,17 +249,14 @@ local function make_constants(view, projection, near_z, far_z)
 		1.0 / state.tile_size
 	)
 	common.cluster_z_params = vmath.vector4(near_z, far_z, 0, 0)
+	local lighting = context.profile.settings.lighting or {}
+	common.cluster_debug = vmath.vector4(lighting.cluster_debug == false and 0 or 1, 0, 0, 0)
 
 	local build = render.constant_buffer()
 	build.inverse_projection = vmath.inv(projection)
 	build.cluster_grid = common.cluster_grid
 	build.cluster_screen = common.cluster_screen
 	build.cluster_z_params = common.cluster_z_params
-
-	local depth = render.constant_buffer()
-	depth.cluster_grid = common.cluster_grid
-	depth.cluster_screen = common.cluster_screen
-	depth.cluster_z_params = common.cluster_z_params
 
 	local assign = render.constant_buffer()
 	assign.view_matrix = view
@@ -256,53 +269,30 @@ local function make_constants(view, projection, near_z, far_z)
 		0
 	)
 
-	return common, build, depth, assign
+	return common, build, assign
 end
 
-local function render_depth_prepass(camera_component)
-	render.set_render_target(state.depth_target)
-	render.set_viewport(0, 0, state.width, state.height)
-	render.set_camera(camera_component, { use_frustum = true })
-	render.clear({
-		[graphics.BUFFER_TYPE_COLOR0_BIT] = vmath.vector4(0, 0, 0, 0),
-		[graphics.BUFFER_TYPE_DEPTH_BIT] = 1,
-	})
-	render.enable_state(graphics.STATE_DEPTH_TEST)
-	render.set_depth_mask(true)
-
-	render.enable_state(graphics.STATE_CULL_FACE)
-	render.enable_material("drp_cluster_linear_depth_opaque")
-	render.draw(state.opaque)
-	render.disable_material()
-
-	render.disable_state(graphics.STATE_CULL_FACE)
-	render.enable_material("drp_cluster_linear_depth_mask")
-	render.draw(state.mask)
-	render.disable_material()
-	render.disable_state(graphics.STATE_DEPTH_TEST)
-	render.set_render_target(render.RENDER_TARGET_DEFAULT)
-end
-
-local function build_clusters(build, depth, assign)
-	render.set_compute("drp_cluster_depth_reduce")
-	render.enable_texture(0, state.depth_target, graphics.BUFFER_TYPE_COLOR0_BIT)
-	render.dispatch_compute(ceil_div(state.grid_x, 8), ceil_div(state.grid_y, 8), 1, {
-		constants = depth,
-	})
-	render.disable_texture(0)
-
+local function build_clusters(build, assign)
 	render.set_compute("drp_cluster_reset")
+	bind_cluster_buffers()
 	render.dispatch_compute(1, 1, 1)
 
-	render.set_compute("drp_cluster_build")
-	render.dispatch_compute(
-		ceil_div(state.grid_x, 4),
-		ceil_div(state.grid_y, 4),
-		ceil_div(state.grid_z, 4),
-		{ constants = build }
-	)
+	if state.bounds_dirty then
+		render.set_compute("drp_cluster_build")
+		bind_cluster_buffers()
+		render.dispatch_compute(
+			ceil_div(state.grid_x, 4),
+			ceil_div(state.grid_y, 4),
+			ceil_div(state.grid_z, 4),
+			{ constants = build }
+		)
+		state.bounds_dirty = false
+	end
 
+	-- Selecting this compute program causes Defold to bind its engine-owned
+	-- LightBuffer UBO by reflected block name. DRP only binds its own SSBOs.
 	render.set_compute("drp_cluster_assign")
+	bind_cluster_buffers()
 	render.dispatch_compute(state.grid_x * state.grid_y * state.grid_z, 1, 1, {
 		constants = assign,
 	})
@@ -319,6 +309,7 @@ local function clear_and_draw(camera_component, constants, clustered)
 	render.enable_state(graphics.STATE_DEPTH_TEST)
 
 	if clustered then
+		bind_cluster_buffers()
 		render.enable_state(graphics.STATE_CULL_FACE)
 		render.draw(state.opaque, { constants = constants })
 		render.disable_state(graphics.STATE_CULL_FACE)
@@ -332,6 +323,7 @@ local function clear_and_draw(camera_component, constants, clustered)
 	render.disable_state(graphics.STATE_CULL_FACE)
 
 	if clustered then
+		bind_cluster_buffers()
 		render.set_depth_mask(false)
 		render.enable_state(graphics.STATE_BLEND)
 		render.set_blend_func(
@@ -406,7 +398,7 @@ function M.resize(context, width, height)
 	end
 end
 
-function M.render()
+function M.render(context)
 	if not state.render_available then
 		return
 	end
@@ -420,15 +412,14 @@ function M.render()
 		return
 	end
 
-	bind_cluster_buffers()
 	local view = camera.get_view(camera_component)
 	local projection = camera.get_projection(camera_component)
 	local near_z = math.max(camera.get_near_z(camera_component), 0.0001)
 	local far_z = math.max(camera.get_far_z(camera_component), near_z + 0.0001)
-	local common, build, depth, assign = make_constants(view, projection, near_z, far_z)
+	update_projection(projection, near_z, far_z)
+	local common, build, assign = make_constants(context, view, projection, near_z, far_z)
 
-	render_depth_prepass(camera_component)
-	build_clusters(build, depth, assign)
+	build_clusters(build, assign)
 	clear_and_draw(camera_component, common, true)
 end
 

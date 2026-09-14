@@ -2,7 +2,7 @@
 
 // Clustered PBR variant for alpha-masked geometry. It performs the material's
 // cutoff test before lighting so discarded texels write neither color nor
-// depth and remain consistent with the masked linear-depth prepass.
+// depth in either the heatmap or the provisional clustered-lighting path.
 
 in mediump mat4 var_view;
 
@@ -31,6 +31,11 @@ void main()
     PBRLightData data = calculate_pbr_light_data(params, material, var_position.xyz);
     out_fragColor = vec4(to_output(composite_pbr_light_data(data)), 1.0);
 #else
+    if (cluster_debug.x > 0.5)
+    {
+        out_fragColor = drp_cluster_debug_color(var_position.xyz);
+        return;
+    }
     ClusteredLightData data = calculate_clustered_pbr_light_data(params, material,
         var_position.xyz);
     out_fragColor = vec4(to_output(composite_clustered_pbr(data)), 1.0);

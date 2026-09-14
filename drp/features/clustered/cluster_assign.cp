@@ -39,27 +39,27 @@ struct ClusterBounds
     vec4 maximum;
 };
 
-layout(std430, set = 1, binding = 0) readonly buffer ClusterBoundsBuffer
+layout(std430, set = 2, binding = 0) readonly buffer ClusterBoundsBuffer
 {
     ClusterBounds cluster_bounds[];
 };
 
-layout(std430, set = 1, binding = 2) buffer ClusterMetadataBuffer
+layout(std430, set = 2, binding = 2) buffer ClusterMetadataBuffer
 {
     uvec2 cluster_metadata[];
 };
 
-layout(std430, set = 1, binding = 3) buffer ClusterLightIndicesBuffer
+layout(std430, set = 2, binding = 3) buffer ClusterLightIndicesBuffer
 {
     uint cluster_light_indices[];
 };
 
-layout(std430, set = 1, binding = 4) buffer ClusterCountersBuffer
+layout(std430, set = 2, binding = 4) buffer ClusterCountersBuffer
 {
     uint cluster_counters[4];
 };
 
-layout(std430, set = 1, binding = 5) buffer ClusterOverflowBuffer
+layout(std430, set = 2, binding = 5) buffer ClusterOverflowBuffer
 {
     uint cluster_overflow[];
 };

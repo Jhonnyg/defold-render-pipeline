@@ -5,7 +5,11 @@
 [`clustered_renderer.collection`](clustered_renderer/clustered_renderer.collection)
 is the default bootstrap collection. It uses DRP clustered materials and eight
 colored point lights spread across several depth slices. Move with the Vantage
-controls to inspect cluster transitions.
+controls to inspect cluster transitions. The balanced profile initially shows
+a surface-projected clustered assignment heatmap: gray means empty, the
+blue-to-red ramp shows increasing occupancy, dark lines mark XY tile edges,
+and magenta reports overflow. Black pixels with no scene geometry are not
+cluster cells.
 
 The project must reserve at least as many engine lights as the clustered shader
 ABI exposes:

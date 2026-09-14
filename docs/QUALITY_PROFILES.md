@@ -44,7 +44,6 @@ Profiles declare required feature names:
 requirements = {
     "compute_shaders",
     "storage_buffers",
-    "float_render_targets",
 }
 ```
 

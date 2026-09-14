@@ -22,6 +22,11 @@ fragment_constants {
   type: CONSTANT_TYPE_USER
   value { x: 0.1 y: 1000.0 }
 }
+fragment_constants {
+  name: "cluster_debug"
+  type: CONSTANT_TYPE_USER
+  value { x: 1.0 }
+}
 samplers { name: "PbrMetallicRoughness_baseColorTexture" wrap_u: WRAP_MODE_REPEAT wrap_v: WRAP_MODE_REPEAT filter_min: FILTER_MODE_MIN_LINEAR filter_mag: FILTER_MODE_MAG_LINEAR }
 samplers { name: "PbrMetallicRoughness_metallicRoughnessTexture" wrap_u: WRAP_MODE_REPEAT wrap_v: WRAP_MODE_REPEAT filter_min: FILTER_MODE_MIN_LINEAR filter_mag: FILTER_MODE_MAG_LINEAR }
 samplers { name: "PbrMaterial_normalTexture" wrap_u: WRAP_MODE_REPEAT wrap_v: WRAP_MODE_REPEAT filter_min: FILTER_MODE_MIN_LINEAR filter_mag: FILTER_MODE_MAG_LINEAR }

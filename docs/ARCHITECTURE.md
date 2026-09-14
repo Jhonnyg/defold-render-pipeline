@@ -12,7 +12,7 @@ bridge, and an initial clustered-lighting feature.
 | `drp.capabilities` | Platform detection and the contract for future native GPU capability data. |
 | `drp.native` | Internal Lua wrapper around optional native GPU operations. |
 | `drp.resources` | Resource-name, ownership, descriptor-set, and binding registry. Feature modules still allocate their own GPU resources. |
-| `drp.features.clustered.clustered` | Cluster buffer lifecycle, depth prepass, compute assignment, and clustered scene drawing. |
+| `drp.features.clustered.clustered` | Persistent cluster-buffer lifecycle, dirty bounds rebuilding, compute assignment, and clustered debug drawing. |
 | `drp.utils` | Internal shared helpers for defensive copying, table merging, array detection, and string joining. |
 | `drp.profiles.*` | Built-in rendering-intent profiles. |
 

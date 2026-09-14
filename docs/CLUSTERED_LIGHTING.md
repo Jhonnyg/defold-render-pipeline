@@ -5,12 +5,13 @@
 The initial DRP Forward+ path partitions the camera frustum into screen-space
 tiles and logarithmic depth slices. A compute pass intersects every active
 engine light with the resulting view-space cluster bounds and writes compact
-per-cluster lists. Clustered PBR fragment shaders evaluate only the indices in
-the fragment's cluster.
+per-cluster lists. The default result is an assignment heatmap on clustered
+geometry, so cluster lookup, occupancy, and overflow can be validated before
+the clustered PBR result is treated as production-ready.
 
-This iteration supports directional, point, and spot lights. It does not yet
-include shadows, image-based lighting, HDR output, post-processing, light-list
-prioritization, or temporal reuse.
+This iteration supports directional, point, and spot assignment. It does not
+yet include shadows, image-based lighting, HDR output, post-processing,
+light-list prioritization, or temporal reuse.
 
 ## LightBuffer ownership
 
@@ -47,45 +48,54 @@ at runtime.
 
 ## Per-frame pass order
 
-1. The active camera supplies view/projection matrices and near/far distances.
-2. Clustered opaque and masked models render linear view depth into an
-   `RGBA32F` color target with a depth attachment.
-3. `cluster_depth_reduce.cp` computes one visible depth range per XY tile. The
-   data is retained for diagnostics and a future conservative depth-pruning
-   implementation; the current assignment pass does not reject clusters from
-   it because a single-layer depth prepass cannot represent occluded layers.
-4. `cluster_reset.cp` clears global list counters.
-5. `cluster_build.cp` reconstructs one view-space AABB for every XYZ cluster.
-6. `cluster_assign.cp` reads the engine `LightBuffer` UBO, intersects its lights
-   with every cluster, and writes metadata plus compact light indices.
-7. Clustered opaque, masked, and transparent material passes look up the
-   fragment's cluster and evaluate its PBR light list.
-8. Conventional `model` materials are also drawn during migration, but they use
-   their own forward lighting path and do not consume cluster lists.
+1. `pipeline.begin_frame()` commits pending quality changes.
+2. A resolution or profile change recalculates the XY tile grid and Z-slice
+   count.
+3. Existing extension SSBOs are resized only when their required byte size
+   changes; missing buffers are allocated.
+4. `cluster_build.cp` reconstructs view-space AABBs when the projection,
+   near/far planes, resolution, tile size, or slice count changes. Camera view
+   motion alone does not invalidate view-space bounds.
+5. Selecting `cluster_assign.cp` makes the engine bind its `LightBuffer` UBO by
+   reflected block name.
+6. DRP binds its extension-owned cluster SSBOs at descriptor set 2.
+7. `cluster_reset.cp` clears diagnostics and `cluster_assign.cp` intersects all
+   active lights with every cluster, then writes compact indices and overflow.
+8. Clustered materials derive the visible fragment's cluster and render an
+   occupancy heatmap. Magenta means that cluster dropped one or more lights.
+
+The heatmap uses a logarithmic occupancy scale, ranging from blue through green
+and yellow to red. Gray surfaces belong to clusters with no lights, and dark
+lines delineate XY tiles. It colors visible scene geometry rather than drawing
+the cluster volumes into otherwise empty pixels. Set `lighting.cluster_debug =
+false` through a profile or runtime override to inspect the provisional
+clustered PBR output.
 
 ## GPU resources
 
-All extension-owned buffers use descriptor set 1 and `std430` layout.
+All extension-owned buffers use descriptor set 2 and `std430` layout. Set 1 is
+reserved for material resources, including the textures and uniform blocks
+provided by asset-pbr. Keeping cluster storage in a separate set prevents
+descriptor-type collisions when shader includes contribute additional resources.
 
 | Binding | Resource | Contents |
 | ---: | --- | --- |
 | 0 | `cluster_bounds` | Two `vec4` values per XYZ cluster: minimum and maximum view-space bounds. |
-| 1 | `cluster_depth_ranges` | One `vec4` per XY tile: visible min/max depth and geometry flag. |
 | 2 | `cluster_metadata` | One `uvec2` per cluster: compact-list offset and count. |
 | 3 | `cluster_light_indices` | Packed `uint` indices into the engine LightBuffer. |
 | 4 | `cluster_counters` | Allocated-index, dropped-light, overflow-cluster, and max-candidate counters. |
 | 5 | `cluster_overflow` | Number of dropped light candidates per cluster. |
 
-The buffers are resized on viewport or quality-profile changes. The linear
-depth render target is full resolution in this first version.
+The buffers are preserved across frames and resized only when the grid or
+profile changes their required capacity. This debug milestone does not require
+an intermediate render target or depth prepass.
 
 ## Quality and capability behavior
 
 The clustered path is active when the selected profile has
-`rendering.path = "forward_plus"`. It requires compute shaders, storage buffers,
-and a float render target. If those capabilities are explicitly unavailable,
-quality resolution falls back to `compatibility`, which renders conventional
-`model` materials.
+`rendering.path = "forward_plus"`. It requires compute shaders and storage
+buffers. If either capability is explicitly unavailable, quality resolution
+falls back to `compatibility`, which renders conventional `model` materials.
 
 Relevant profile settings are:
 
@@ -94,6 +104,7 @@ lighting = {
     cluster_tile_size = 96,
     cluster_z_slices = 16,
     max_lights_per_cluster = 64,
+    cluster_debug = true,
 }
 ```
 
@@ -111,13 +122,15 @@ migrated.
 
 ## Recommended improvements
 
-- Replace the full-resolution linear-depth prepass with reusable scene depth or
-  a depth pyramid once the pipeline has a shared depth contract.
+- Introduce reusable scene depth or a depth pyramid when conservative empty
+  cluster rejection is implemented.
 - Use conservative hierarchical depth to skip empty clusters without producing
   view-dependent holes.
 - Rank overflowing local lights by estimated contribution instead of retaining
   the first 64 buffer entries.
-- Add cluster occupancy and overflow debug views plus GPU timing counters.
+- Add optional full-screen slice inspection and CPU-readable aggregate
+  diagnostics; the current view visualizes the cluster selected by each visible
+  fragment.
 - Generate shader capacities from one build-time definition so the UBO view,
   profile validation, and material variants cannot drift.
 - Add shadow indices and atlases as a separate feature consuming clustered

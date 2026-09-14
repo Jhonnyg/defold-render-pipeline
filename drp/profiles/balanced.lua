@@ -6,7 +6,6 @@ return {
 	requirements = {
 		"compute_shaders",
 		"storage_buffers",
-		"float_render_targets",
 	},
 	settings = {
 		rendering = {
@@ -17,6 +16,8 @@ return {
 			cluster_tile_size = 96,
 			cluster_z_slices = 16,
 			max_lights_per_cluster = 64,
+			-- This milestone validates assignment before enabling final shading.
+			cluster_debug = true,
 		},
 		shadows = {
 			quality = "pcf",

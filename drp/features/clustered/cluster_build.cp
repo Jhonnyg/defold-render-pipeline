@@ -19,7 +19,7 @@ struct ClusterBounds
     vec4 maximum;
 };
 
-layout(std430, set = 1, binding = 0) buffer ClusterBoundsBuffer
+layout(std430, set = 2, binding = 0) buffer ClusterBoundsBuffer
 {
     ClusterBounds cluster_bounds[];
 };

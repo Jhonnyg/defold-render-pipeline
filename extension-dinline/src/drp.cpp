@@ -18,4 +18,6 @@ static dmExtension::Result Finalize(dmExtension::Params*)
     return dmExtension::RESULT_OK;
 }
 
-DM_DECLARE_EXTENSION(DrpNativeExt, "DrpNative", 0, 0, Initialize, 0, 0, Finalize)
+// The exported symbol must match the name in ext.manifest. Extender emits a
+// direct call to this symbol from dmExportedSymbols() when linking the engine.
+DM_DECLARE_EXTENSION(drp, "DrpNative", 0, 0, Initialize, 0, 0, Finalize)
