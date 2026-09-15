@@ -1,0 +1,12 @@
+name: "drp_cluster_depth_opaque"
+tags: "drp_cluster_depth_opaque"
+vertex_program: "/defold-pbr/shaders/pbr.vp"
+fragment_program: "/drp/shaders/cluster_depth_opaque.fp"
+vertex_space: VERTEX_SPACE_LOCAL
+vertex_constants { name: "mtx_worldview" type: CONSTANT_TYPE_WORLDVIEW }
+vertex_constants { name: "mtx_view" type: CONSTANT_TYPE_VIEW }
+vertex_constants { name: "mtx_proj" type: CONSTANT_TYPE_PROJECTION }
+vertex_constants { name: "mtx_normal" type: CONSTANT_TYPE_NORMAL }
+fragment_constants { name: "cluster_projection" type: CONSTANT_TYPE_USER }
+fragment_constants { name: "cluster_grid" type: CONSTANT_TYPE_USER }
+fragment_constants { name: "cluster_screen" type: CONSTANT_TYPE_USER }

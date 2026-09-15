@@ -42,5 +42,6 @@ facade and quality settings instead of manipulating the feature list.
 `clustered/clustered.lua` is the first implementation. It activates for
 profiles whose `rendering.path` is `forward_plus`, owns the cluster SSBOs,
 rebuilds view-space bounds only when their inputs change, assigns engine lights
-every frame, and submits the clustered debug material passes. See
+every frame, and submits asset-pbr opaque, mask, transparent, and diagnostic
+passes. See `clustered/README.md` for milestone status and
 `docs/CLUSTERED_LIGHTING.md` for its resource contract.

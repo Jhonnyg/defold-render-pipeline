@@ -258,6 +258,17 @@ function M.get_active_profile()
 	return state.active and utils.copy(state.active.profile) or nil
 end
 
+function M.get_feature_diagnostics(name)
+	if type(name) ~= "string" or name == "" then
+		return nil, "feature name must be a non-empty string"
+	end
+	local diagnostics = features.get_diagnostics(name)
+	if not diagnostics then
+		return nil, "unknown feature '" .. name .. "'"
+	end
+	return utils.copy(diagnostics)
+end
+
 function M.set_quality(name)
 	if not state.initialized then
 		local initialized, err = M.initialize()

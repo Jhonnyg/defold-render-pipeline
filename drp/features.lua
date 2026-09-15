@@ -35,6 +35,15 @@ function M.render(context)
 	invoke("render", context)
 end
 
+function M.get_diagnostics(name)
+	for _, feature in ipairs(feature_modules) do
+		if feature.name == name and feature.get_diagnostics then
+			return feature.get_diagnostics()
+		end
+	end
+	return nil
+end
+
 function M.finalize(context)
 	for index = #feature_modules, 1, -1 do
 		local hook = feature_modules[index].finalize

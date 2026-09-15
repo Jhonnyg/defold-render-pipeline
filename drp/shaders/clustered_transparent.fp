@@ -1,5 +1,7 @@
 #version 430
 
+#include "/drp/shaders/clustered_config.glsl"
+
 // Clustered PBR variant for alpha-blended geometry. Lighting remains linear
 // until the final output conversion, and material alpha is preserved for the
 // render script's source-alpha blending pass.
@@ -9,7 +11,7 @@ in mediump mat4 var_view;
 #ifdef EDITOR
 #define MAX_LIGHT_COUNT 8
 #else
-#define MAX_LIGHT_COUNT 64
+#define MAX_LIGHT_COUNT DRP_CLUSTER_LIGHT_CAPACITY
 #endif
 
 #ifdef EDITOR

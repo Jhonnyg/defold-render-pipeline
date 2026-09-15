@@ -2,3 +2,9 @@ script: "/drp/drp.render_script"
 render_resources { name: "drp_cluster_reset" path: "/drp/features/clustered/cluster_reset.compute" }
 render_resources { name: "drp_cluster_build" path: "/drp/features/clustered/cluster_build.compute" }
 render_resources { name: "drp_cluster_assign" path: "/drp/features/clustered/cluster_assign.compute" }
+render_resources { name: "drp_cluster_depth_opaque" path: "/drp/materials/cluster_depth_opaque.material" }
+render_resources { name: "drp_cluster_depth_mask" path: "/drp/materials/cluster_depth_mask.material" }
+render_resources { name: "drp_cluster_depth_transparent" path: "/drp/materials/cluster_depth_transparent.material" }
+render_resources { name: "drp_compat_opaque" path: "/drp/materials/compat_opaque.material" }
+render_resources { name: "drp_compat_mask" path: "/drp/materials/compat_mask.material" }
+render_resources { name: "drp_compat_transparent" path: "/drp/materials/compat_transparent.material" }

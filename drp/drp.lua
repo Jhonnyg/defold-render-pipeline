@@ -34,6 +34,23 @@ local quality = require("drp.quality")
 ---@field capabilities drp.CapabilityRecord|nil Defensive copy of current capabilities.
 ---@field viewport table|nil Current render viewport with `width` and `height`, or nil before the first frame.
 
+---@class drp.ClusteredDiagnostics
+---@field enabled boolean Whether the selected profile requests Forward+.
+---@field available boolean Whether clustered GPU resources are active.
+---@field grid_x integer Number of horizontal tiles.
+---@field grid_y integer Number of vertical tiles.
+---@field grid_z integer Number of logarithmic depth slices.
+---@field cluster_count integer Total cluster count.
+---@field tile_size integer Tile width and height in pixels.
+---@field shader_light_capacity integer Reflected LightBuffer capacity.
+---@field max_lights_per_cluster integer Effective per-cluster list capacity.
+---@field index_capacity integer Total compact-index capacity.
+---@field capacity_clamped boolean Whether device limits reduced the profile request.
+---@field storage_bytes integer Total extension-owned cluster buffer bytes.
+---@field maximum_light_tests integer Conservative upper bound before depth-range rejection.
+---@field depth_range_culling boolean Whether tile depth ranges reject empty slices.
+---@field buffer_sizes table<string, integer> Per-buffer allocation sizes.
+
 ---@class drp.QualityTransition
 ---@field frame integer Frame on which the transition became active.
 ---@field dt number Delta time passed to `drp.begin_frame()`.
@@ -51,7 +68,7 @@ local quality = require("drp.quality")
 local M = {
 	---Semantic version of the public DRP Lua API.
 	---@type string
-	VERSION = "0.2.0",
+	VERSION = "0.3.0",
 }
 
 ---Initializes the DRP singleton.
@@ -146,6 +163,18 @@ end
 ---@return drp.Profile|nil profile
 function M.get_active_profile()
 	return pipeline.get_active_profile()
+end
+
+---Returns a snapshot of CPU-visible diagnostics for a pipeline feature.
+---
+---The clustered record includes grid dimensions, effective capacities, buffer
+---sizes, and the conservative assignment workload. Exact occupancy and
+---overflow remain GPU-resident and are visualized by the clustered heatmap.
+---@param name string Feature name; currently `"clustered"`.
+---@return drp.ClusteredDiagnostics|nil diagnostics
+---@return string|nil error
+function M.get_feature_diagnostics(name)
+	return pipeline.get_feature_diagnostics(name)
 end
 
 ---Requests a quality profile.

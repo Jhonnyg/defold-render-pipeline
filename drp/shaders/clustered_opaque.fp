@@ -1,5 +1,7 @@
 #version 430
 
+#include "/drp/shaders/clustered_config.glsl"
+
 // Shades opaque asset-pbr geometry from the compact light list belonging to
 // each fragment's XYZ cluster. The editor uses conventional eight-light PBR
 // because it does not execute DRP's compute passes or bind cluster SSBOs.
@@ -9,7 +11,7 @@ in mediump mat4 var_view;
 #ifdef EDITOR
 #define MAX_LIGHT_COUNT 8
 #else
-#define MAX_LIGHT_COUNT 64
+#define MAX_LIGHT_COUNT DRP_CLUSTER_LIGHT_CAPACITY
 #endif
 
 #ifdef EDITOR

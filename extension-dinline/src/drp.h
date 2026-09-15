@@ -10,9 +10,10 @@
 
 struct lua_State;
 
-// These graphics capability declarations are engine-owned and intentionally
-// not part of dmSDK. DRP uses the exported engine functions through this
-// private bridge, so keep the declarations in sync with graphics/graphics.h.
+// TODO(engine-public-api): Replace these declarations when feature queries and
+// graphics limits have a stable dmSDK API. They are engine-owned today; DRP
+// uses the exported functions through this private bridge and must keep the
+// declarations synchronized with graphics/graphics.h in the meantime.
 namespace dmGraphics
 {
     enum ContextFeature

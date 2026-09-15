@@ -45,13 +45,21 @@ render script.
 
 The `balanced`, `high`, and `ultra` profiles activate clustered lighting. The
 `compatibility` profile renders conventional `model` materials without compute
-or storage-buffer requirements. Other profile settings still describe future
-rendering intent.
+or storage-buffer requirements. Cluster-authored predicates are replaced at
+draw time with conventional asset-pbr variants, so the same scene can be used
+by both paths. Other profile settings still describe future rendering intent.
 
 Read [the quality-profile documentation](docs/QUALITY_PROFILES.md) and
 [public API reference](docs/API.md) for details. Native bridge requirements and
 its internal Lua surface are documented in
 [the native bridge reference](docs/NATIVE_BRIDGE.md).
+
+> **TODO — native glTF surface modes:** Automatic opaque, alpha-mask, and
+> transparent classification should ultimately be provided by Defold's import,
+> material, and default PBR systems rather than implemented independently by
+> DRP. The proposed engine/extension boundary is recorded in
+> [Native glTF PBR Surface Modes](docs/GLTF_PBR_SURFACE_MODES.md). Until then,
+> DRP model material slots use explicit clustered surface variants.
 
 The runnable [Sponza clustered-shading example](examples/README.md) is the
 default bootstrap collection. Smaller cluster-assignment and quality API
@@ -81,10 +89,14 @@ mode treats both unknown and unsupported requirements as unavailable.
 
 ## Status
 
-The configuration contracts, native SSBO bridge, clustered assignment, and
-asset-pbr-based clustered shading are active. Shadows, HDR, post-processing,
-automatic material variants, and production fallback materials remain future
-work. See [clustered lighting](docs/CLUSTERED_LIGHTING.md) for the current pass
-and resource contract.
+The configuration contracts, native SSBO bridge, clustered assignment,
+asset-pbr-based clustered shading, transparent ordering, and runtime
+compatibility overrides are active. Automatically assigning a clustered
+material from imported material metadata still needs an editor/build-pipeline
+integration. Shadows, HDR, and post-processing remain future work. See
+[clustered lighting](docs/CLUSTERED_LIGHTING.md) for the current pass and
+resource contract. The feature is functionally complete for its current MVP1
+scope; its remaining validation and pre-PR work is tracked in the
+[clustered feature README](drp/features/clustered/README.md).
 
 ---

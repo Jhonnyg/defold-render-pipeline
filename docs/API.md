@@ -161,3 +161,19 @@ Removes a previously registered callback.
 Returns a defensive snapshot containing initialization state, frame number,
 requested quality, effective quality, pending request, active profile, and
 capabilities.
+
+### `drp.get_feature_diagnostics(name)`
+
+Returns a defensive snapshot of CPU-visible diagnostics for a feature. The
+currently supported name is `"clustered"`. Its record contains the grid,
+effective capacities, per-buffer byte sizes, total storage use, whether device
+limits clamped the profile, and a conservative maximum assignment workload.
+
+```lua
+local cluster = drp.get_feature_diagnostics("clustered")
+print(cluster.cluster_count, cluster.storage_bytes)
+```
+
+Exact occupancy, dropped-light, and overflowing-cluster counters are produced
+on the GPU. Until Defold exposes asynchronous storage-buffer readback, inspect
+those values through `lighting.cluster_debug`; magenta identifies overflow.

@@ -1,5 +1,7 @@
 #version 430
 
+#include "/drp/shaders/clustered_config.glsl"
+
 // Clustered PBR variant for alpha-masked geometry. It performs the material's
 // cutoff test before lighting so discarded texels write neither color nor
 // depth in either the heatmap or the provisional clustered-lighting path.
@@ -9,7 +11,7 @@ in mediump mat4 var_view;
 #ifdef EDITOR
 #define MAX_LIGHT_COUNT 8
 #else
-#define MAX_LIGHT_COUNT 64
+#define MAX_LIGHT_COUNT DRP_CLUSTER_LIGHT_CAPACITY
 #endif
 
 #ifdef EDITOR

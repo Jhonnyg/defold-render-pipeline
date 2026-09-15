@@ -1,10 +1,12 @@
 local native = require("drp.native")
 local resources = require("drp.resources")
+local config = require("drp.features.clustered.config")
 
 local M = {}
+M.name = "clustered"
 
-local MAX_SHADER_LIGHTS = 64
-local MAX_LIGHTS_PER_CLUSTER = 64
+local MAX_SHADER_LIGHTS = config.shader_light_capacity
+local MAX_LIGHTS_PER_CLUSTER = config.max_lights_per_cluster
 -- Material textures and uniform blocks occupy descriptor set 1. Keep all
 -- extension-owned storage buffers in set 2 so their explicit bindings cannot
 -- collide with resources contributed by asset-pbr or another material include.
@@ -12,6 +14,7 @@ local STORAGE_SET = 2
 
 local BUFFER_DESCRIPTORS = {
 	{ name = "cluster_bounds", binding = 0, bytes_per_cluster = 32 },
+	{ name = "cluster_depth_ranges", binding = 1, bytes_per_tile = 8 },
 	{ name = "cluster_metadata", binding = 2, bytes_per_cluster = 8 },
 	{ name = "cluster_light_indices", binding = 3, bytes_per_index = 4 },
 	{ name = "cluster_counters", binding = 4, fixed_size = 16 },
@@ -38,6 +41,8 @@ local state = {
 	near_z = 0,
 	far_z = 0,
 	debug_description_printed = false,
+	capacity_clamped = false,
+	total_buffer_bytes = 0,
 }
 
 local function ceil_div(value, divisor)
@@ -100,13 +105,17 @@ local function reset_allocations()
 	state.near_z = 0
 	state.far_z = 0
 	state.debug_description_printed = false
+	state.capacity_clamped = false
+	state.total_buffer_bytes = 0
 end
 
-local function buffer_size(descriptor, cluster_count, index_capacity)
+local function buffer_size(descriptor, cluster_count, tile_count, index_capacity)
 	if descriptor.fixed_size then
 		return descriptor.fixed_size
 	elseif descriptor.bytes_per_cluster then
 		return descriptor.bytes_per_cluster * cluster_count
+	elseif descriptor.bytes_per_tile then
+		return descriptor.bytes_per_tile * tile_count
 	end
 	return descriptor.bytes_per_index * index_capacity
 end
@@ -132,23 +141,37 @@ local function configure(context, width, height)
 	local lighting = context.profile.settings.lighting or {}
 	local tile_size = math.max(8, math.floor(lighting.cluster_tile_size or 96))
 	local grid_z = math.max(1, math.floor(lighting.cluster_z_slices or 16))
-	local max_lights = math.max(1, math.floor(lighting.max_lights_per_cluster or 64))
+	local requested_max_lights = math.max(1,
+		math.floor(lighting.max_lights_per_cluster or 64))
+	local max_lights = requested_max_lights
 	max_lights = math.min(max_lights, MAX_LIGHTS_PER_CLUSTER)
 
 	local grid_x = ceil_div(width, tile_size)
 	local grid_y = ceil_div(height, tile_size)
+	local tile_count = grid_x * grid_y
 	local cluster_count = grid_x * grid_y * grid_z
-	local index_capacity = cluster_count * max_lights
 	local maximum_range = context.capabilities and context.capabilities.limits and
 		context.capabilities.limits.max_storage_buffer_range or nil
 	if maximum_range and maximum_range > 0 then
-		index_capacity = math.min(index_capacity, math.floor(maximum_range / 4))
+		-- Reserve the same number of entries for every cluster. Merely truncating
+		-- the global list lets early workgroups consume the entire buffer and makes
+		-- later screen regions lose all lighting in an order-dependent way.
+		local device_entries_per_cluster = math.floor(maximum_range / 4 / cluster_count)
+		if device_entries_per_cluster < 1 then
+			state.available = false
+			warn_once("the device storage-buffer limit cannot hold one light index per cluster")
+			return
+		end
+		max_lights = math.min(max_lights, device_entries_per_cluster)
 	end
+	local index_capacity = cluster_count * max_lights
 
 	local required_sizes = {}
+	local total_buffer_bytes = 0
 	for _, descriptor in ipairs(BUFFER_DESCRIPTORS) do
-		local size = buffer_size(descriptor, cluster_count, index_capacity)
+		local size = buffer_size(descriptor, cluster_count, tile_count, index_capacity)
 		required_sizes[descriptor.name] = size
+		total_buffer_bytes = total_buffer_bytes + size
 		if maximum_range and maximum_range > 0 and size > maximum_range then
 			state.available = false
 			warn_once(descriptor.name .. " exceeds the device storage-buffer limit")
@@ -195,14 +218,22 @@ local function configure(context, width, height)
 	state.tile_size = tile_size
 	state.max_lights_per_cluster = max_lights
 	state.index_capacity = index_capacity
+	state.capacity_clamped = max_lights < requested_max_lights
+	state.total_buffer_bytes = total_buffer_bytes
 	state.bounds_dirty = state.bounds_dirty or grid_changed
 	state.available = true
 	state.warned = false
 	if not state.debug_description_printed then
 		print(string.format(
-			"DRP clustered lighting: %dx%dx%d clusters; set lighting.cluster_debug=true for the occupancy heatmap",
-			grid_x, grid_y, grid_z
+			"DRP clustered lighting: %dx%dx%d clusters, %d lights/cluster, %.1f KiB buffers; set lighting.cluster_debug=true for the occupancy heatmap",
+			grid_x, grid_y, grid_z, max_lights, total_buffer_bytes / 1024
 		))
+		if state.capacity_clamped then
+			print(string.format(
+				"DRP clustered lighting: profile capacity %d was clamped to the effective shader/device limit of %d",
+				requested_max_lights, max_lights
+			))
+		end
 		state.debug_description_printed = true
 	end
 end
@@ -272,11 +303,16 @@ local function make_constants(context, view, projection, near_z, far_z)
 	return common, build, assign
 end
 
-local function build_clusters(build, assign)
+local function reset_clusters(assign)
 	render.set_compute("drp_cluster_reset")
 	bind_cluster_buffers()
-	render.dispatch_compute(1, 1, 1)
+	render.dispatch_compute(ceil_div(state.grid_x * state.grid_y, 64), 1, 1, {
+		constants = assign,
+	})
+	render.set_compute()
+end
 
+local function build_clusters(build, assign)
 	if state.bounds_dirty then
 		render.set_compute("drp_cluster_build")
 		bind_cluster_buffers()
@@ -299,7 +335,7 @@ local function build_clusters(build, assign)
 	render.set_compute()
 end
 
-local function clear_and_draw(camera_component, constants, clustered)
+local function begin_scene(camera_component)
 	render.set_render_target(render.RENDER_TARGET_DEFAULT)
 	render.set_viewport(0, 0, render.get_window_width(), render.get_window_height())
 	render.set_camera(camera_component, { use_frustum = true })
@@ -310,33 +346,114 @@ local function clear_and_draw(camera_component, constants, clustered)
 	render.clear(state.clear)
 	render.set_depth_func(graphics.COMPARE_FUNC_LEQUAL)
 	render.enable_state(graphics.STATE_DEPTH_TEST)
+	render.set_color_mask(true, true, true, true)
+end
 
-	if clustered then
-		bind_cluster_buffers()
-		render.enable_state(graphics.STATE_CULL_FACE)
-		render.draw(state.opaque, { constants = constants })
-		render.disable_state(graphics.STATE_CULL_FACE)
-		render.draw(state.mask, { constants = constants })
-	end
+local function render_depth_ranges(constants)
+	-- Populate hardware depth for the opaque passes and atomically accumulate
+	-- the minimum/maximum visible depth for every XY tile. Transparent geometry
+	-- contributes to the range without writing depth, so later transparent
+	-- fragments cannot lose their cluster merely because they are behind another
+	-- transparent surface.
+	bind_cluster_buffers()
+	render.set_color_mask(false, false, false, false)
+	render.set_depth_func(graphics.COMPARE_FUNC_LEQUAL)
+	render.set_depth_mask(true)
+
+	render.enable_state(graphics.STATE_CULL_FACE)
+	render.enable_material("drp_cluster_depth_opaque")
+	render.draw(state.opaque, {
+		constants = constants,
+		sort_order = render.SORT_FRONT_TO_BACK,
+	})
+	render.disable_material()
+
+	render.disable_state(graphics.STATE_CULL_FACE)
+	render.enable_material("drp_cluster_depth_mask")
+	render.draw(state.mask, {
+		constants = constants,
+		sort_order = render.SORT_FRONT_TO_BACK,
+	})
+	render.disable_material()
+
+	render.set_depth_mask(false)
+	render.enable_material("drp_cluster_depth_transparent")
+	render.draw(state.transparent, {
+		constants = constants,
+		sort_order = render.SORT_BACK_TO_FRONT,
+	})
+	render.disable_material()
+	render.set_color_mask(true, true, true, true)
+end
+
+local function draw_clustered(constants)
+	bind_cluster_buffers()
+	-- The depth-range pass used the same vertex program, so opaque and masked
+	-- shading can reuse exact depth and avoid a second round of overdraw.
+	render.set_depth_func(graphics.COMPARE_FUNC_EQUAL)
+	render.set_depth_mask(false)
+	render.enable_state(graphics.STATE_CULL_FACE)
+	render.draw(state.opaque, {
+		constants = constants,
+		sort_order = render.SORT_FRONT_TO_BACK,
+	})
+	render.disable_state(graphics.STATE_CULL_FACE)
+	render.draw(state.mask, {
+		constants = constants,
+		sort_order = render.SORT_FRONT_TO_BACK,
+	})
 
 	-- Conventional asset-pbr/model materials are the compatibility path. Keep
-	-- them in a separate predicate so selecting that profile never requires
-	-- cluster storage buffers or compute dispatches.
+	-- their regular depth behavior because they did not participate in DRP's
+	-- depth-range pass.
+	render.set_depth_func(graphics.COMPARE_FUNC_LEQUAL)
+	render.set_depth_mask(true)
 	render.enable_state(graphics.STATE_CULL_FACE)
-	render.draw(state.model)
+	render.draw(state.model, { sort_order = render.SORT_FRONT_TO_BACK })
 	render.disable_state(graphics.STATE_CULL_FACE)
 
-	if clustered then
-		bind_cluster_buffers()
-		render.set_depth_mask(false)
-		render.enable_state(graphics.STATE_BLEND)
-		render.set_blend_func(
-			graphics.BLEND_FACTOR_SRC_ALPHA,
-			graphics.BLEND_FACTOR_ONE_MINUS_SRC_ALPHA
-		)
-		render.draw(state.transparent, { constants = constants })
-		render.disable_state(graphics.STATE_BLEND)
-	end
+	bind_cluster_buffers()
+	render.set_depth_mask(false)
+	render.enable_state(graphics.STATE_BLEND)
+	render.set_blend_func(
+		graphics.BLEND_FACTOR_SRC_ALPHA,
+		graphics.BLEND_FACTOR_ONE_MINUS_SRC_ALPHA
+	)
+	render.draw(state.transparent, {
+		constants = constants,
+		sort_order = render.SORT_BACK_TO_FRONT,
+	})
+	render.disable_state(graphics.STATE_BLEND)
+end
+
+local function draw_compatibility()
+	-- Cluster-authored content is rendered through resource-level material
+	-- overrides. This keeps one scene usable by both Forward+ and compatibility
+	-- profiles while leaving its textures and per-model material constants intact.
+	render.enable_state(graphics.STATE_CULL_FACE)
+	render.draw(state.model, { sort_order = render.SORT_FRONT_TO_BACK })
+	render.enable_material("drp_compat_opaque")
+	render.draw(state.opaque, { sort_order = render.SORT_FRONT_TO_BACK })
+	render.disable_material()
+	render.disable_state(graphics.STATE_CULL_FACE)
+
+	render.enable_material("drp_compat_mask")
+	render.draw(state.mask, { sort_order = render.SORT_FRONT_TO_BACK })
+	render.disable_material()
+
+	render.set_depth_mask(false)
+	render.enable_state(graphics.STATE_BLEND)
+	render.set_blend_func(
+		graphics.BLEND_FACTOR_SRC_ALPHA,
+		graphics.BLEND_FACTOR_ONE_MINUS_SRC_ALPHA
+	)
+	render.enable_material("drp_compat_transparent")
+	render.draw(state.transparent, { sort_order = render.SORT_BACK_TO_FRONT })
+	render.disable_material()
+	render.disable_state(graphics.STATE_BLEND)
+end
+
+local function end_scene()
 
 	render.disable_state(graphics.STATE_DEPTH_TEST)
 	render.set_depth_mask(false)
@@ -348,6 +465,10 @@ function M.initialize(context)
 		_G.vmath ~= nil and _G.sys ~= nil
 
 	for _, descriptor in ipairs(BUFFER_DESCRIPTORS) do
+		-- TODO(engine-reflection): Storage buffers currently pass through parts of
+		-- the render-uniform warning path even though the native bridge binds them
+		-- correctly. Remove this workaround boundary once SSBO reflection/binding
+		-- is fully public and consistently classified by the render API.
 		local ok, err = resources.declare("clustered." .. descriptor.name, {
 			type = "storage_buffer",
 			owner = "clustered",
@@ -412,7 +533,9 @@ function M.render(context)
 	end
 
 	if not state.enabled or not state.available then
-		clear_and_draw(camera_component, nil, false)
+		begin_scene(camera_component)
+		draw_compatibility()
+		end_scene()
 		return
 	end
 
@@ -423,8 +546,40 @@ function M.render(context)
 	update_projection(projection, near_z, far_z)
 	local common, build, assign = make_constants(context, view, projection, near_z, far_z)
 
+	begin_scene(camera_component)
+	reset_clusters(assign)
+	render_depth_ranges(common)
 	build_clusters(build, assign)
-	clear_and_draw(camera_component, common, true)
+	draw_clustered(common)
+	end_scene()
+end
+
+function M.get_diagnostics()
+	local cluster_count = state.grid_x * state.grid_y * state.grid_z
+	return {
+		enabled = state.enabled,
+		available = state.available,
+		grid_x = state.grid_x,
+		grid_y = state.grid_y,
+		grid_z = state.grid_z,
+		cluster_count = cluster_count,
+		tile_size = state.tile_size,
+		shader_light_capacity = MAX_SHADER_LIGHTS,
+		max_lights_per_cluster = state.max_lights_per_cluster,
+		index_capacity = state.index_capacity,
+		capacity_clamped = state.capacity_clamped,
+		storage_bytes = state.total_buffer_bytes,
+		maximum_light_tests = cluster_count * MAX_SHADER_LIGHTS,
+		depth_range_culling = true,
+		buffer_sizes = {
+			cluster_bounds = state.buffer_sizes.cluster_bounds or 0,
+			cluster_depth_ranges = state.buffer_sizes.cluster_depth_ranges or 0,
+			cluster_metadata = state.buffer_sizes.cluster_metadata or 0,
+			cluster_light_indices = state.buffer_sizes.cluster_light_indices or 0,
+			cluster_counters = state.buffer_sizes.cluster_counters or 0,
+			cluster_overflow = state.buffer_sizes.cluster_overflow or 0,
+		},
+	}
 end
 
 function M.finalize()

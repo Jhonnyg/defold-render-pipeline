@@ -5,9 +5,6 @@ render = /drp/drp.renderc
 [light]
 max_count = 64
 
-[script]
-shared_state = 1
-
 [shader]
 exclude_gles_sm100 = 1
 

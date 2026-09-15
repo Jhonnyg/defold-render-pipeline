@@ -28,5 +28,6 @@ The normal `balanced` profile should show the lit Sponza scene. Set
 same geometry as a cluster occupancy heatmap.
 
 The transparent cube is deliberately a simple pass-order fixture, not a
-complete transparency-quality test. DRP does not yet sort multiple transparent
-objects back-to-front.
+complete transparency-quality test. DRP sorts transparent render entries
+back-to-front, but intersecting objects and triangles within one model still
+need an order-independent transparency technique for correct composition.

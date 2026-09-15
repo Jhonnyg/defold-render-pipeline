@@ -38,11 +38,11 @@ Opaque and mask geometry write depth before the transparent pass. Transparent
 objects use source-alpha blending with depth writes disabled.
 
 The `compatibility` profile remains a conventional forward path and draws
-materials tagged `model`, such as `/defold-pbr/pbr.material`. It deliberately
-does not dispatch cluster compute programs or bind cluster SSBOs. Automatic
-runtime material-variant selection is not part of this milestone, so content
-that must run on compatibility-only devices needs conventional material slots
-in its compatibility scene or build variant.
+materials tagged `model`, such as `/defold-pbr/pbr.material`. Cluster-authored
+opaque, mask, and transparent predicates are automatically drawn with matching
+conventional asset-pbr override materials, so the same scene can switch between
+Forward+ and compatibility profiles. The compatibility path does not dispatch
+cluster compute programs or bind cluster SSBOs.
 
 ## Quality API
 

@@ -44,21 +44,21 @@ platforms:
       jetifier: true
   arm64-osx:
     context:
-      excludeLibs: [graphics, graphics_vulkan, platform_vulkan, MoltenVK]
-      excludeSymbols: [GraphicsAdapterOpenGL, GraphicsAdapterVulkan]
-      symbols: [GraphicsAdapterMetal]
-      libs: [graphics_metal]
-      engineLibs: [platform]
-      frameworks: [Metal, IOSurface, QuartzCore]
+      excludeLibs: []
+      excludeSymbols: []
+      symbols: []
+      libs: []
+      engineLibs: []
+      frameworks: []
       linkFlags: []
   x86_64-osx:
     context:
-      excludeLibs: [graphics, graphics_vulkan, platform_vulkan, MoltenVK]
-      excludeSymbols: [GraphicsAdapterOpenGL, GraphicsAdapterVulkan]
-      symbols: [GraphicsAdapterMetal]
-      libs: [graphics_metal]
-      engineLibs: [platform]
-      frameworks: [Metal, IOSurface, QuartzCore]
+      excludeLibs: []
+      excludeSymbols: []
+      symbols: []
+      libs: []
+      engineLibs: []
+      frameworks: []
       linkFlags: []
   x86_64-linux:
     context:

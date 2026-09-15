@@ -1,3 +1,5 @@
+local clustered = require("drp.features.clustered.config")
+
 return {
 	name = "ultra",
 	description = "Maximum-quality experimental profile for high-end hardware.",
@@ -11,7 +13,7 @@ return {
 			cluster_tile_size = 48,
 			cluster_z_slices = 32,
 			-- Increase this together with the clustered shader LightBuffer ABI.
-			max_lights_per_cluster = 64,
+			max_lights_per_cluster = clustered.max_lights_per_cluster,
 		},
 		shadows = {
 			quality = "pcss_high",
