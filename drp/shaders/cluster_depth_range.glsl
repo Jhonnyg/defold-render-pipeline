@@ -1,6 +1,10 @@
 #ifndef DRP_CLUSTER_DEPTH_RANGE_GLSL
 #define DRP_CLUSTER_DEPTH_RANGE_GLSL
 
+// Shared fragment helper for the cluster depth-range prepass. Every visible
+// fragment atomically expands the positive view-depth interval of its XY tile;
+// cluster assignment later rejects logarithmic Z slices outside that interval.
+
 #ifndef DEFOLD_PBR_INPUTS
 in highp vec4 var_position;
 #endif

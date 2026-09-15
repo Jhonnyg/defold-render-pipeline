@@ -3,8 +3,9 @@
 #include "/drp/shaders/clustered_config.glsl"
 
 // Clustered PBR variant for alpha-masked geometry. It performs the material's
-// cutoff test before lighting so discarded texels write neither color nor
-// depth in either the heatmap or the provisional clustered-lighting path.
+// cutoff test before lighting so discarded texels contribute neither color nor
+// heatmap output. The separate masked depth pass uses the same cutoff semantics.
+// The editor branch uses conventional PBR because it cannot run cluster compute.
 
 in mediump mat4 var_view;
 
