@@ -1,0 +1,57 @@
+-- Temporary dynamic-light test for the Sponza clustered-lighting scene.
+-- The original transforms are captured at startup so the scene remains easy
+-- to rearrange without updating a second set of hard-coded positions here.
+
+go.property("enabled", true)
+go.property("speed", 0.65)
+go.property("travel_x", 1.25)
+go.property("travel_z", 0.75)
+go.property("travel_y", 0.35)
+
+local LIGHT_IDS = {
+	"/warm_0",
+	"/cool_0",
+	"/warm_1",
+	"/cool_1",
+	"/warm_2",
+	"/cool_2",
+	"/warm_3",
+	"/cool_3",
+}
+
+function init(self)
+	self.elapsed = 0
+	self.lights = {}
+
+	for index, id in ipairs(LIGHT_IDS) do
+		local target = msg.url(id)
+		self.lights[index] = {
+			target = target,
+			origin = go.get_position(target),
+			phase = (index - 1) * math.pi * 0.25,
+		}
+	end
+
+	print("Sponza dynamic-light test enabled: animating 8 clustered point lights")
+end
+
+function update(self, dt)
+	if not self.enabled then
+		return
+	end
+
+	self.elapsed = self.elapsed + dt
+
+	for _, light in ipairs(self.lights) do
+		local angle = self.elapsed * self.speed + light.phase
+		local position = vmath.vector3(light.origin)
+
+		-- Different frequencies avoid moving all lights as a rigid formation and
+		-- continuously exercise X, Y, and logarithmic Z cluster boundaries.
+		position.x = position.x + math.sin(angle) * self.travel_x
+		position.y = position.y + math.sin(angle * 1.7) * self.travel_y
+		position.z = position.z + math.cos(angle * 1.3) * self.travel_z
+
+		go.set_position(position, light.target)
+	end
+end
