@@ -1,0 +1,394 @@
+mesh: "/examples/sponza/sponza-avif-hi.glb"
+name: "model_0"
+materials {
+  name: "material_0"
+  material: "/drp/materials/clustered_mask.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_01_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_02_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_00_normal.png"
+  }
+}
+materials {
+  name: "material_1"
+  material: "/drp/materials/clustered_opaque.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_07_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_08_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_06_normal.png"
+  }
+}
+materials {
+  name: "material_2"
+  material: "/drp/materials/clustered_opaque.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_64_base_color.png"
+  }
+}
+materials {
+  name: "material_3"
+  material: "/drp/materials/clustered_mask.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_04_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_05_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_03_normal.png"
+  }
+}
+materials {
+  name: "material_4"
+  material: "/drp/materials/clustered_opaque.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_10_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_11_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_09_normal.png"
+  }
+}
+materials {
+  name: "material_5"
+  material: "/drp/materials/clustered_opaque.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_13_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_14_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_12_normal.png"
+  }
+}
+materials {
+  name: "material_6"
+  material: "/drp/materials/clustered_opaque.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_16_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_17_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_15_normal.png"
+  }
+}
+materials {
+  name: "material_7"
+  material: "/drp/materials/clustered_opaque.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_19_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_20_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_18_normal.png"
+  }
+}
+materials {
+  name: "material_8"
+  material: "/drp/materials/clustered_opaque.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_22_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_23_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_21_normal.png"
+  }
+}
+materials {
+  name: "material_9"
+  material: "/drp/materials/clustered_opaque.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_25_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_26_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_24_normal.png"
+  }
+}
+materials {
+  name: "material_10"
+  material: "/drp/materials/clustered_opaque.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_28_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_29_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_27_normal.png"
+  }
+}
+materials {
+  name: "material_11"
+  material: "/drp/materials/clustered_opaque.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_31_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_32_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_30_normal.png"
+  }
+}
+materials {
+  name: "material_12"
+  material: "/drp/materials/clustered_opaque.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_34_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_35_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_33_normal.png"
+  }
+}
+materials {
+  name: "material_13"
+  material: "/drp/materials/clustered_opaque.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_37_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_38_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_36_normal.png"
+  }
+}
+materials {
+  name: "material_14"
+  material: "/drp/materials/clustered_opaque.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_40_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_41_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_39_normal.png"
+  }
+}
+materials {
+  name: "material_15"
+  material: "/drp/materials/clustered_opaque.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_42_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_41_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_39_normal.png"
+  }
+}
+materials {
+  name: "material_16"
+  material: "/drp/materials/clustered_opaque.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_43_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_41_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_39_normal.png"
+  }
+}
+materials {
+  name: "material_17"
+  material: "/drp/materials/clustered_opaque.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_45_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_46_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_44_normal.png"
+  }
+}
+materials {
+  name: "material_18"
+  material: "/drp/materials/clustered_opaque.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_47_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_46_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_44_normal.png"
+  }
+}
+materials {
+  name: "material_19"
+  material: "/drp/materials/clustered_opaque.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_48_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_46_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_44_normal.png"
+  }
+}
+materials {
+  name: "material_20"
+  material: "/drp/materials/clustered_mask.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_50_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_51_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_49_normal.png"
+  }
+}
+materials {
+  name: "material_21"
+  material: "/drp/materials/clustered_opaque.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_53_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_54_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_52_normal.png"
+  }
+}
+materials {
+  name: "material_22"
+  material: "/drp/materials/clustered_opaque.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_56_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_57_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_55_normal.png"
+  }
+}
+materials {
+  name: "material_23"
+  material: "/drp/materials/clustered_opaque.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_59_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_60_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_58_normal.png"
+  }
+}
+materials {
+  name: "material_24"
+  material: "/drp/materials/clustered_opaque.material"
+  textures {
+    sampler: "PbrMetallicRoughness_baseColorTexture"
+    texture: "/examples/sponza/textures/sponza_62_base_color.png"
+  }
+  textures {
+    sampler: "PbrMetallicRoughness_metallicRoughnessTexture"
+    texture: "/examples/sponza/textures/sponza_63_metallic_roughness.png"
+  }
+  textures {
+    sampler: "PbrMaterial_normalTexture"
+    texture: "/examples/sponza/textures/sponza_61_normal.png"
+  }
+}

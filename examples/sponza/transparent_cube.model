@@ -1,0 +1,6 @@
+mesh: "/examples/sponza/transparent_cube.gltf"
+material: "/drp/materials/clustered_transparent.material"
+skeleton: ""
+animations: ""
+default_animation: ""
+name: "transparent_cube"

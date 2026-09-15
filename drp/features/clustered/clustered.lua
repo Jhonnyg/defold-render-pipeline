@@ -200,7 +200,7 @@ local function configure(context, width, height)
 	state.warned = false
 	if not state.debug_description_printed then
 		print(string.format(
-			"DRP clustered heatmap: %dx%dx%d clusters; gray=empty, blue-to-red=increasing light count, magenta=overflow",
+			"DRP clustered lighting: %dx%dx%d clusters; set lighting.cluster_debug=true for the occupancy heatmap",
 			grid_x, grid_y, grid_z
 		))
 		state.debug_description_printed = true
@@ -303,8 +303,11 @@ local function clear_and_draw(camera_component, constants, clustered)
 	render.set_render_target(render.RENDER_TARGET_DEFAULT)
 	render.set_viewport(0, 0, render.get_window_width(), render.get_window_height())
 	render.set_camera(camera_component, { use_frustum = true })
-	render.clear(state.clear)
+	-- The transparent pass leaves depth writes disabled. Depth clears honor the
+	-- current write mask on several backends, so restore it before clearing or
+	-- stale depth from the previous camera pose will reject this frame's scene.
 	render.set_depth_mask(true)
+	render.clear(state.clear)
 	render.set_depth_func(graphics.COMPARE_FUNC_LEQUAL)
 	render.enable_state(graphics.STATE_DEPTH_TEST)
 
@@ -316,8 +319,9 @@ local function clear_and_draw(camera_component, constants, clustered)
 		render.draw(state.mask, { constants = constants })
 	end
 
-	-- Standard model materials remain usable while projects migrate individual
-	-- material slots to DRP's clustered variants.
+	-- Conventional asset-pbr/model materials are the compatibility path. Keep
+	-- them in a separate predicate so selecting that profile never requires
+	-- cluster storage buffers or compute dispatches.
 	render.enable_state(graphics.STATE_CULL_FACE)
 	render.draw(state.model)
 	render.disable_state(graphics.STATE_CULL_FACE)

@@ -60,8 +60,8 @@ function M.run()
 	local unknown_caps = capabilities.detect({ platform = "macos" })
 	local balanced = assert(quality.resolve("balanced", unknown_caps))
 	assert_equal("balanced", balanced.effective, "unknown capabilities are allowed in non-strict mode")
-	assert_equal(true, balanced.profile.settings.lighting.cluster_debug,
-		"cluster assignment visualization is enabled for the first milestone")
+	assert_equal(false, balanced.profile.settings.lighting.cluster_debug,
+		"clustered PBR shading is enabled by default")
 
 	local unsupported_caps = capabilities.detect({
 		platform = "macos",
@@ -73,6 +73,8 @@ function M.run()
 	})
 	local fallback = assert(quality.resolve("high", unsupported_caps))
 	assert_equal("compatibility", fallback.effective, "unsupported Forward+ profiles fall back")
+	assert_equal("forward", fallback.profile.settings.rendering.path,
+		"compatibility keeps the conventional forward path")
 	assert(#fallback.reasons >= 2, "fallback should retain rejection reasons")
 
 	local supported_web = capabilities.detect({
@@ -99,12 +101,12 @@ function M.run()
 	assert_equal(0.8, custom.profile.settings.rendering.render_scale, "child settings override parent")
 	quality.unregister("test_custom")
 
-	local debug_disabled = quality.with_settings_overrides(web, {
-		lighting = { cluster_debug = false },
+	local debug_enabled = quality.with_settings_overrides(web, {
+		lighting = { cluster_debug = true },
 	})
-	assert_equal(false, debug_disabled.profile.settings.lighting.cluster_debug,
-		"runtime settings can disable the clustered heatmap")
-	assert_equal(true, web.profile.settings.lighting.cluster_debug,
+	assert_equal(true, debug_enabled.profile.settings.lighting.cluster_debug,
+		"runtime settings can enable the clustered heatmap")
+	assert_equal(false, web.profile.settings.lighting.cluster_debug,
 		"settings overrides do not mutate the resolved profile")
 
 	pipeline.finalize()

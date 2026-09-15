@@ -31,8 +31,8 @@ void main()
         out_fragColor = drp_cluster_debug_color(var_position.xyz);
         return;
     }
-    ClusteredLightData data = calculate_clustered_pbr_light_data(params, material,
+    PBRLightData data = calculate_clustered_pbr_light_data(params, material,
         var_position.xyz);
-    out_fragColor = vec4(to_output(composite_clustered_pbr(data)), 1.0);
+    out_fragColor = vec4(to_output(composite_pbr_light_data(data)), 1.0);
 #endif
 }

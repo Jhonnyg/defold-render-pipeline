@@ -172,10 +172,10 @@ void main()
         uint stored = min(candidates, limit);
         uint offset = atomicAdd(cluster_counters[0], stored);
         uint capacity = uint(cluster_limits.y);
-        uint writable = offset < capacity ? min(stored, capacity - offset) : 0u;
-        uint dropped = candidates - writable;
+        uint write_count = offset < capacity ? min(stored, capacity - offset) : 0u;
+        uint dropped = candidates - write_count;
 
-        cluster_metadata[cluster_index] = uvec2(offset, writable);
+        cluster_metadata[cluster_index] = uvec2(offset, write_count);
         cluster_overflow[cluster_index] = dropped;
         atomicAdd(cluster_counters[1], dropped);
         if (dropped != 0u)
@@ -183,7 +183,7 @@ void main()
             atomicAdd(cluster_counters[2], 1u);
         }
         atomicMax(cluster_counters[3], candidates);
-        accepted_count = writable;
+        accepted_count = write_count;
     }
     barrier();
 

@@ -2,16 +2,23 @@
 
 ## Scope
 
-The initial DRP Forward+ path partitions the camera frustum into screen-space
-tiles and logarithmic depth slices. A compute pass intersects every active
-engine light with the resulting view-space cluster bounds and writes compact
-per-cluster lists. The default result is an assignment heatmap on clustered
-geometry, so cluster lookup, occupancy, and overflow can be validated before
-the clustered PBR result is treated as production-ready.
+The DRP Forward+ path partitions the camera frustum into screen-space tiles and
+logarithmic depth slices. A compute pass intersects every active engine light
+with the resulting view-space cluster bounds and writes compact per-cluster
+lists. Opaque, alpha-masked, and transparent materials then use the list for
+their fragment's cluster rather than iterating every active light.
 
-This iteration supports directional, point, and spot assignment. It does not
-yet include shadows, image-based lighting, HDR output, post-processing,
-light-list prioritization, or temporal reuse.
+The clustered materials include asset-pbr's `pbr_lighting.glsl`. Asset-pbr
+therefore remains authoritative for glTF metallic-roughness material decoding,
+normal mapping, GGX/Lambert BRDF evaluation, Defold light evaluation, constant
+indirect light, and final composition. DRP only replaces the all-lights loop
+with the compact index range selected by the fragment's cluster. An optional
+surface-projected heatmap remains available for assignment diagnostics.
+
+This iteration supports directional, point, and spot assignment and direct
+metallic-roughness shading. It does not yet include shadows, image-based
+lighting, HDR output, post-processing, light-list prioritization, or temporal
+reuse.
 
 ## LightBuffer ownership
 
@@ -61,15 +68,19 @@ at runtime.
 6. DRP binds its extension-owned cluster SSBOs at descriptor set 2.
 7. `cluster_reset.cp` clears diagnostics and `cluster_assign.cp` intersects all
    active lights with every cluster, then writes compact indices and overflow.
-8. Clustered materials derive the visible fragment's cluster and render an
-   occupancy heatmap. Magenta means that cluster dropped one or more lights.
+8. Clustered opaque and alpha-mask materials render with depth writes enabled.
+9. Conventional `model` materials render through the forward compatibility
+   path.
+10. Clustered transparent materials render last with source-alpha blending and
+    depth writes disabled.
 
-The heatmap uses a logarithmic occupancy scale, ranging from blue through green
-and yellow to red. Gray surfaces belong to clusters with no lights, and dark
-lines delineate XY tiles. It colors visible scene geometry rather than drawing
-the cluster volumes into otherwise empty pixels. Set `lighting.cluster_debug =
-false` through a profile or runtime override to inspect the provisional
-clustered PBR output.
+Actual clustered shading is the default. Set `lighting.cluster_debug = true`
+through a profile or runtime override to replace it with a logarithmic
+occupancy scale ranging from blue through green and yellow to red. Gray surfaces
+belong to clusters with no lights, magenta means the cluster dropped one or
+more candidates, and dark lines delineate XY tiles. The diagnostic colors
+visible scene geometry rather than drawing cluster volumes into otherwise
+empty pixels.
 
 ## GPU resources
 
@@ -87,7 +98,7 @@ descriptor-type collisions when shader includes contribute additional resources.
 | 5 | `cluster_overflow` | Number of dropped light candidates per cluster. |
 
 The buffers are preserved across frames and resized only when the grid or
-profile changes their required capacity. This debug milestone does not require
+profile changes their required capacity. This shaded milestone does not require
 an intermediate render target or depth prepass.
 
 ## Quality and capability behavior
@@ -104,7 +115,7 @@ lighting = {
     cluster_tile_size = 96,
     cluster_z_slices = 16,
     max_lights_per_cluster = 64,
-    cluster_debug = true,
+    cluster_debug = false,
 }
 ```
 
@@ -116,9 +127,18 @@ Assign the appropriate DRP material to each model material slot:
 - `/drp/materials/clustered_mask.material`
 - `/drp/materials/clustered_transparent.material`
 
-The materials use asset-pbr's vertex and material conventions. Existing model
-materials remain renderable, but are not clustered until their slots are
-migrated.
+The materials use asset-pbr's vertex shader and include its complete lighting
+module. Existing conventional model materials remain renderable on the forward
+path, but are not clustered until their slots are migrated.
+
+Opaque and alpha-mask slots render before transparent slots. The mask shader
+performs the glTF alpha-cutoff test before shading. The transparent shader
+preserves material alpha and renders with depth writes disabled; per-object
+back-to-front sorting is not yet provided.
+
+The Sponza collection under `/examples/sponza` is the visual integration test.
+It contains opaque and masked Sponza slots, a transparent fixture, a directional
+light, and local lights distributed through the atrium.
 
 ## Recommended improvements
 
@@ -133,6 +153,11 @@ migrated.
   fragment.
 - Generate shader capacities from one build-time definition so the UBO view,
   profile validation, and material variants cannot drift.
+- Add back-to-front sorting or weighted blended order-independent transparency
+  for overlapping transparent objects.
+- Add automatic clustered/conventional material variants so one content scene
+  can move between Forward+ and compatibility profiles without separate model
+  resources.
 - Add shadow indices and atlases as a separate feature consuming clustered
   light lists.
 - Add WebGPU, Vulkan, Metal, and DirectX validation scenes and automated image

@@ -1,0 +1,6 @@
+mesh: "/builtins/assets/gltf/cube.gltf"
+material: "/defold-pbr/pbr.material"
+skeleton: ""
+animations: ""
+default_animation: ""
+name: "regular_forward_cube"

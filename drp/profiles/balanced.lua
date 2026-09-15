@@ -16,8 +16,9 @@ return {
 			cluster_tile_size = 96,
 			cluster_z_slices = 16,
 			max_lights_per_cluster = 64,
-			-- This milestone validates assignment before enabling final shading.
-			cluster_debug = true,
+			-- Actual clustered PBR is the normal path. The occupancy heatmap remains
+			-- available as an explicit diagnostic override.
+			cluster_debug = false,
 		},
 		shadows = {
 			quality = "pcf",

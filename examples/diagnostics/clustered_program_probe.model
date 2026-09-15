@@ -1,0 +1,6 @@
+mesh: "/builtins/assets/gltf/cube.gltf"
+material: "/drp/materials/clustered_program_probe.material"
+skeleton: ""
+animations: ""
+default_animation: ""
+name: "clustered_program_probe_cube"

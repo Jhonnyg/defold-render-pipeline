@@ -33,6 +33,8 @@ All three cap `max_lights_per_cluster` at 64 because the first implementation
 declares a 64-entry view of the engine-owned `LightBuffer` UBO. The engine may
 allocate a larger UBO, but it must not allocate a smaller one than the shader
 block being bound. The bundled project therefore sets `[light] max_count = 64`.
+Actual asset-pbr-based clustered shading is the default for these profiles;
+`lighting.cluster_debug = true` replaces it with the assignment heatmap.
 
 Inheritance cycles and missing parents are reported during resolution.
 

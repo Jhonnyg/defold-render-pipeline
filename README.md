@@ -6,10 +6,11 @@ PBR materials, shadows, HDR, ambient occlusion, depth of field, and rendering
 diagnostics.
 
 The current milestone implements the configuration foundation, native
-storage-buffer bridge, and the first Forward+ clustered-lighting feature. The
-cluster grid and per-cluster light lists are extension-owned SSBOs. Punctual
-light data remains in Defold's engine-owned `LightBuffer` UBO and is consumed
-directly by both the assignment compute shader and clustered PBR materials.
+storage-buffer bridge, Forward+ light assignment, and asset-pbr-based clustered
+shading for opaque, alpha-masked, and transparent models. The cluster grid and
+per-cluster light lists are extension-owned SSBOs. Punctual light data remains
+in Defold's engine-owned `LightBuffer` UBO and is consumed directly by both the
+assignment compute shader and clustered PBR materials.
 
 ## Current API
 
@@ -52,9 +53,9 @@ Read [the quality-profile documentation](docs/QUALITY_PROFILES.md) and
 its internal Lua surface are documented in
 [the native bridge reference](docs/NATIVE_BRIDGE.md).
 
-The runnable [clustered renderer example](examples/README.md) is the default
-bootstrap collection. A separate quality API example demonstrates profile
-registration, runtime overrides, quality requests, and transition callbacks.
+The runnable [Sponza clustered-shading example](examples/README.md) is the
+default bootstrap collection. Smaller cluster-assignment and quality API
+examples remain available for focused testing.
 
 ## Project configuration
 
@@ -80,9 +81,10 @@ mode treats both unknown and unsupported requirements as unavailable.
 
 ## Status
 
-The configuration contracts, native SSBO bridge, and initial clustered
-renderer are active. Shadows, HDR, post-processing, and production fallback
-materials remain future work. See [clustered lighting](docs/CLUSTERED_LIGHTING.md)
-for the current pass and resource contract.
+The configuration contracts, native SSBO bridge, clustered assignment, and
+asset-pbr-based clustered shading are active. Shadows, HDR, post-processing,
+automatic material variants, and production fallback materials remain future
+work. See [clustered lighting](docs/CLUSTERED_LIGHTING.md) for the current pass
+and resource contract.
 
 ---
