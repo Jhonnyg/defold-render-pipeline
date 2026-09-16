@@ -350,15 +350,16 @@ local function begin_scene(camera_component)
 end
 
 local function render_depth_ranges(constants)
-	-- Populate hardware depth for the opaque passes and atomically accumulate
-	-- the minimum/maximum visible depth for every XY tile. Transparent geometry
-	-- contributes to the range without writing depth, so later transparent
-	-- fragments cannot lose their cluster merely because they are behind another
-	-- transparent surface.
+	-- Atomically accumulate the conservative depth interval for every XY tile.
+	-- This pass deliberately does not update hardware depth: fragment shaders
+	-- with SSBO atomics cannot also serve as a reliable depth prepass on every
+	-- backend. The shaded opaque/mask pass below owns hardware depth instead.
+	-- Including occluded geometry can only add conservative false positives to
+	-- light assignment; it cannot omit a light needed by a visible fragment.
 	bind_cluster_buffers()
 	render.set_color_mask(false, false, false, false)
 	render.set_depth_func(graphics.COMPARE_FUNC_LEQUAL)
-	render.set_depth_mask(true)
+	render.set_depth_mask(false)
 
 	render.enable_state(graphics.STATE_CULL_FACE)
 	render.enable_material("drp_cluster_depth_opaque")
@@ -376,7 +377,6 @@ local function render_depth_ranges(constants)
 	})
 	render.disable_material()
 
-	render.set_depth_mask(false)
 	render.enable_material("drp_cluster_depth_transparent")
 	render.draw(state.transparent, {
 		constants = constants,
@@ -388,10 +388,11 @@ end
 
 local function draw_clustered(constants)
 	bind_cluster_buffers()
-	-- The depth-range pass used the same vertex program, so opaque and masked
-	-- shading can reuse exact depth and avoid a second round of overdraw.
-	render.set_depth_func(graphics.COMPARE_FUNC_EQUAL)
-	render.set_depth_mask(false)
+	-- The range-recording pass does not populate hardware depth. Render opaque
+	-- and masked surfaces with conventional depth writes so visibility is stable
+	-- across backends and independent of SSBO fragment-side effects.
+	render.set_depth_func(graphics.COMPARE_FUNC_LEQUAL)
+	render.set_depth_mask(true)
 	render.enable_state(graphics.STATE_CULL_FACE)
 	render.draw(state.opaque, {
 		constants = constants,
