@@ -33,16 +33,12 @@ instances {
   prototype: "/examples/sponza/ambient.go"
 }
 instances {
-  id: "animate_lights"
-  prototype: "/examples/sponza/animate_lights.go"
-}
-instances {
   id: "warm_0"
   prototype: "/examples/clustered_renderer/warm_light.go"
   position {
     x: 6.0
-    y: 3.0
-    z: -2.5
+    y: 4.642091
+    z: -3.701717
   }
 }
 instances {
@@ -50,7 +46,7 @@ instances {
   prototype: "/examples/clustered_renderer/cool_light.go"
   position {
     x: 6.0
-    y: 3.908285
+    y: 3.390859
     z: 2.5
   }
 }
@@ -59,8 +55,8 @@ instances {
   prototype: "/examples/clustered_renderer/warm_light.go"
   position {
     x: 2.0
-    y: 3.0
-    z: -2.5
+    y: 4.642091
+    z: -3.701717
   }
 }
 instances {
@@ -68,7 +64,7 @@ instances {
   prototype: "/examples/clustered_renderer/cool_light.go"
   position {
     x: 2.0
-    y: 3.0
+    y: 2.482574
     z: 2.5
   }
 }
@@ -77,8 +73,8 @@ instances {
   prototype: "/examples/clustered_renderer/warm_light.go"
   position {
     x: -2.0
-    y: 3.0
-    z: -2.5
+    y: 4.642091
+    z: -3.701717
   }
 }
 instances {
@@ -86,7 +82,7 @@ instances {
   prototype: "/examples/clustered_renderer/cool_light.go"
   position {
     x: -2.0
-    y: 3.0
+    y: 2.482574
     z: 2.5
   }
 }
@@ -95,8 +91,8 @@ instances {
   prototype: "/examples/clustered_renderer/warm_light.go"
   position {
     x: -6.0
-    y: 3.0
-    z: -2.5
+    y: 4.642091
+    z: -3.701717
   }
 }
 instances {
@@ -104,7 +100,7 @@ instances {
   prototype: "/examples/clustered_renderer/cool_light.go"
   position {
     x: -6.0
-    y: 3.0
+    y: 2.482574
     z: 2.5
   }
 }
