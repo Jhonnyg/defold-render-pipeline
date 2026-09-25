@@ -1,0 +1,6 @@
+name: "quality_api_example"
+instances {
+  id: "quality_api_example"
+  prototype: "/examples/quality_api/quality_api_example.go"
+}
+scale_along_z: 0

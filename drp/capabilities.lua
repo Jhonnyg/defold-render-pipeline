@@ -1,4 +1,5 @@
 local utils = require("drp.utils")
+local native = require("drp.native")
 
 local M = {}
 
@@ -29,12 +30,22 @@ local function get_system_info()
 	return {}
 end
 
----Detects capabilities visible to the Lua layer.
+local function get_native_capabilities()
+	if not native.is_available() then
+		return nil
+	end
+	local ok, result = pcall(native.get_capabilities)
+	if ok and type(result) == "table" then
+		return result
+	end
+	return nil
+end
+
+---Detects capabilities visible to DRP.
 ---
----GPU feature fields intentionally remain nil until a native capability
----provider is added. `nil` means unknown, while `false` means explicitly
----unsupported. Quality resolution can be made strict to treat unknown values
----as unsupported.
+---The native provider is merged over the portable Lua baseline when available,
+---then explicit overrides are applied last. `nil` means unknown, while `false`
+---means explicitly unsupported.
 ---@param overrides table|nil
 ---@return table
 function M.detect(overrides)
@@ -53,7 +64,13 @@ function M.detect(overrides)
 		limits = {},
 	}
 
+	utils.merge(result, get_native_capabilities() or {})
 	utils.merge(result, overrides or {})
+	-- This is a build constraint, not a device capability. Runtime overrides
+	-- cannot restore GPU programs omitted by the compatibility build.
+	if _G.sys and sys.get_config and sys.get_config("drp.clustered_resources", "1") == "0" then
+		result.features.clustered_resources = false
+	end
 	result.platform = normalize_platform(result.platform)
 	return result
 end

@@ -1,0 +1,6 @@
+mesh: "/builtins/assets/gltf/cube.gltf"
+material: "/drp/materials/clustered_opaque.material"
+skeleton: ""
+animations: ""
+default_animation: ""
+name: "unnamed"

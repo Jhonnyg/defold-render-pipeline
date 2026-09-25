@@ -1,0 +1,23 @@
+#version 140
+
+// Conventional asset-pbr alpha-blended variant used as a render-time override
+// by the compatibility profile. The render script supplies blending, disables
+// depth writes, and sorts transparent render entries back-to-front.
+
+in mediump mat4 var_view;
+
+#define MAX_LIGHT_COUNT 8
+#include "/defold-pbr/shaders/pbr_lighting.glsl"
+
+void main()
+{
+    PBRParams params = get_pbr_params();
+    MaterialInfo material = get_material_info(params);
+    // Skip effectively invisible fragments before evaluating all forward lights.
+    if (material.baseColor.a <= 0.001)
+    {
+        discard;
+    }
+    PBRLightData data = calculate_pbr_light_data(params, material, var_position.xyz);
+    out_fragColor = vec4(to_output(composite_pbr_light_data(data)), data.alpha);
+}

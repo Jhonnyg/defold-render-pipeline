@@ -31,9 +31,37 @@ function M.run()
 	assert_equal("new", merged.items[1], "replacement arrays are copied")
 	assert_equal("a, b", utils.join(source.items, ", "), "array values can be joined")
 
+	local previous_native = rawget(_G, "drp_native")
+	_G.drp_native = {
+		get_capabilities = function()
+			return {
+				source = "test-native",
+				adapter = "test-adapter",
+				features = {
+					compute_shaders = true,
+					storage_buffers = true,
+				},
+				limits = {
+					max_storage_buffer_range = 4096,
+				},
+			}
+		end,
+	}
+	local native_caps = capabilities.detect({
+		features = { storage_buffers = false },
+	})
+	assert_equal("test-native", native_caps.source, "native provider is merged over the Lua baseline")
+	assert_equal("test-adapter", native_caps.adapter, "native adapter is reported")
+	assert_equal(true, native_caps.features.compute_shaders, "native features are reported")
+	assert_equal(false, native_caps.features.storage_buffers, "explicit overrides win over native features")
+	assert_equal(4096, native_caps.limits.max_storage_buffer_range, "native limits are reported")
+	_G.drp_native = previous_native
+
 	local unknown_caps = capabilities.detect({ platform = "macos" })
 	local balanced = assert(quality.resolve("balanced", unknown_caps))
 	assert_equal("balanced", balanced.effective, "unknown capabilities are allowed in non-strict mode")
+	assert_equal(false, balanced.profile.settings.lighting.cluster_debug,
+		"clustered PBR shading is enabled by default")
 
 	local unsupported_caps = capabilities.detect({
 		platform = "macos",
@@ -45,7 +73,13 @@ function M.run()
 	})
 	local fallback = assert(quality.resolve("high", unsupported_caps))
 	assert_equal("compatibility", fallback.effective, "unsupported Forward+ profiles fall back")
+	assert_equal("forward", fallback.profile.settings.rendering.path,
+		"compatibility keeps the conventional forward path")
 	assert(#fallback.reasons >= 2, "fallback should retain rejection reasons")
+	local invalid_path = quality.resolve("compatibility", unsupported_caps, {
+		rendering = { path = "forward_plus" },
+	})
+	assert_equal(nil, invalid_path, "runtime path overrides cannot bypass core GPU requirements")
 
 	local supported_web = capabilities.detect({
 		platform = "html5",
@@ -71,6 +105,14 @@ function M.run()
 	assert_equal(0.8, custom.profile.settings.rendering.render_scale, "child settings override parent")
 	quality.unregister("test_custom")
 
+	local debug_enabled = quality.with_settings_overrides(web, {
+		lighting = { cluster_debug = true },
+	})
+	assert_equal(true, debug_enabled.profile.settings.lighting.cluster_debug,
+		"runtime settings can enable the clustered heatmap")
+	assert_equal(false, web.profile.settings.lighting.cluster_debug,
+		"settings overrides do not mutate the resolved profile")
+
 	pipeline.finalize()
 	assert(pipeline.initialize({
 		quality = "compatibility",
@@ -80,8 +122,17 @@ function M.run()
 	assert_equal("balanced", request.requested, "request is queued")
 	assert_equal("balanced", pipeline.get_requested_quality(), "pending request is observable")
 	assert_equal("compatibility", pipeline.get_effective_quality(), "active profile is unchanged before frame boundary")
-	local transition = assert(pipeline.begin_frame(1 / 60))
+	local transition = assert(pipeline.begin_frame(1 / 60, 800, 600))
 	assert_equal("balanced", transition.current.effective, "request activates at frame boundary")
+	assert(pipeline.render())
+	local pipeline_state = pipeline.get_state()
+	assert_equal(800, pipeline_state.viewport.width, "frame width is retained")
+	assert_equal(600, pipeline_state.viewport.height, "frame height is retained")
+
+	local no_transition, frame_error = pipeline.begin_frame(1 / 60, 800, 600)
+	assert_equal(nil, no_transition, "a stable frame has no quality transition")
+	assert_equal(nil, frame_error, "a stable frame succeeds")
+
 	pipeline.finalize()
 
 	return true

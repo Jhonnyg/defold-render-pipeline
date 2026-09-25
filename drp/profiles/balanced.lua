@@ -1,3 +1,5 @@
+local clustered = require("drp.features.clustered.config")
+
 return {
 	name = "balanced",
 	description = "Default Forward+ profile balancing image quality and GPU cost.",
@@ -6,7 +8,6 @@ return {
 	requirements = {
 		"compute_shaders",
 		"storage_buffers",
-		"float_render_targets",
 	},
 	settings = {
 		rendering = {
@@ -16,7 +17,10 @@ return {
 		lighting = {
 			cluster_tile_size = 96,
 			cluster_z_slices = 16,
-			max_lights_per_cluster = 64,
+			max_lights_per_cluster = clustered.max_lights_per_cluster,
+			-- Actual clustered PBR is the normal path. The occupancy heatmap remains
+			-- available as an explicit diagnostic override.
+			cluster_debug = false,
 		},
 		shadows = {
 			quality = "pcf",

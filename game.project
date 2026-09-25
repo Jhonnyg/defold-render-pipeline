@@ -1,14 +1,23 @@
 [bootstrap]
-main_collection = /examples/quality_api_example.collectionc
+main_collection = /examples/sponza/sponza.collectionc
 render = /drp/drp.renderc
 
-[script]
-shared_state = 1
+[light]
+max_count = 64
+
+[shader]
+exclude_gles_sm100 = 1
 
 [display]
 width = 960
 height = 640
 high_dpi = 1
+
+[render]
+clear_color_red = 0.015
+clear_color_green = 0.02
+clear_color_blue = 0.03
+clear_color_alpha = 1.0
 
 [android]
 input_method = HiddenInputField
@@ -22,9 +31,14 @@ scale_mode = stretch
 
 [project]
 title = defold-render-pipeline
+dependencies#0 = https://github.com/Jhonnyg/defold-vantage/archive/refs/tags/0.3.0.zip
+dependencies#1 = https://github.com/defold/asset-pbr/archive/refs/tags/0.1.0.zip
 
 [drp]
 default_profile = balanced
 fallback_profile = compatibility
 strict_capabilities = 0
+
+[input]
+game_binding = /vantage/vantage.input_bindingc
 

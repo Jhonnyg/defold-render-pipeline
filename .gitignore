@@ -1,6 +1,7 @@
 /.editor_settings
 /.internal
 /build
+/docs/internal
 .externalToolBuilders
 .DS_Store
 Thumbs.db

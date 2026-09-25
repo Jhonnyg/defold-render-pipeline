@@ -4,6 +4,8 @@ local quality = require("drp.quality")
 ---@class drp.CapabilityRecord
 ---@field platform string Normalized platform name, such as `macos`, `windows`, or `html5`.
 ---@field source string Name of the provider that produced this record.
+---@field adapter string|nil Active native graphics adapter, such as `vulkan`, `webgpu`, or `opengl`.
+---@field native_bridge_version integer|nil Native bridge API version when the bridge is loaded.
 ---@field strict boolean Whether unknown required capabilities are treated as unsupported.
 ---@field features table<string, boolean|nil> Supported (`true`), unsupported (`false`), or unknown (`nil`) GPU features.
 ---@field limits table<string, number> GPU limits reported by the active capability provider.
@@ -30,6 +32,24 @@ local quality = require("drp.quality")
 ---@field pending_quality string|nil Profile waiting for the next frame boundary.
 ---@field active_profile drp.Profile|nil Defensive copy of the active profile.
 ---@field capabilities drp.CapabilityRecord|nil Defensive copy of current capabilities.
+---@field viewport table|nil Current render viewport with `width` and `height`, or nil before the first frame.
+
+---@class drp.ClusteredDiagnostics
+---@field enabled boolean Whether the selected profile requests Forward+.
+---@field available boolean Whether clustered GPU resources are active.
+---@field grid_x integer Number of horizontal tiles.
+---@field grid_y integer Number of vertical tiles.
+---@field grid_z integer Number of logarithmic depth slices.
+---@field cluster_count integer Total cluster count.
+---@field tile_size integer Tile width and height in pixels.
+---@field shader_light_capacity integer Reflected LightBuffer capacity.
+---@field max_lights_per_cluster integer Effective per-cluster list capacity.
+---@field index_capacity integer Total compact-index capacity.
+---@field capacity_clamped boolean Whether device limits reduced the profile request.
+---@field storage_bytes integer Total extension-owned cluster buffer bytes.
+---@field maximum_light_tests integer Conservative upper bound before depth-range rejection.
+---@field depth_range_culling boolean Whether tile depth ranges reject empty slices.
+---@field buffer_sizes table<string, integer> Per-buffer allocation sizes.
 
 ---@class drp.QualityTransition
 ---@field frame integer Frame on which the transition became active.
@@ -48,7 +68,7 @@ local quality = require("drp.quality")
 local M = {
 	---Semantic version of the public DRP Lua API.
 	---@type string
-	VERSION = "0.1.0",
+	VERSION = "0.3.0",
 }
 
 ---Initializes the DRP singleton.
@@ -115,8 +135,8 @@ end
 ---Replaces detected capability values and re-resolves the active request.
 ---
 ---The resulting quality resolution is queued until the next frame boundary.
----This function is primarily the integration point for a future native GPU
----capability provider and for tests.
+---Explicit values override both the Lua baseline and native GPU provider. This
+---function is primarily useful for tests and application-enforced limits.
 ---@param capability_overrides table Capability record fields to apply over Lua baseline detection.
 ---@return drp.QualityResolution|nil resolution Queued resolution, or `nil` on failure.
 ---@return string|nil error Error message when DRP is uninitialized or resolution fails.
@@ -143,6 +163,18 @@ end
 ---@return drp.Profile|nil profile
 function M.get_active_profile()
 	return pipeline.get_active_profile()
+end
+
+---Returns a snapshot of CPU-visible diagnostics for a pipeline feature.
+---
+---The clustered record includes grid dimensions, effective capacities, buffer
+---sizes, and the conservative assignment workload. Exact occupancy and
+---overflow remain GPU-resident and are visualized by the clustered heatmap.
+---@param name string Feature name; currently `"clustered"`.
+---@return drp.ClusteredDiagnostics|nil diagnostics
+---@return string|nil error
+function M.get_feature_diagnostics(name)
+	return pipeline.get_feature_diagnostics(name)
 end
 
 ---Requests a quality profile.

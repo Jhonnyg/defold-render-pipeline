@@ -1,4 +1,7 @@
 # Shaders
 
-Shared shader libraries and feature shaders will be added with their owning
-render features. This milestone intentionally includes no rendering shaders.
+Shared shader libraries live here; compute programs remain with their owning
+feature. The current files implement clustered PBR opaque, masked, and
+transparent variants around asset-pbr's complete PBR lighting module, plus the
+shared cluster occupancy/overflow visualization. Public material usage and the
+active buffer contract are documented in `/docs/CLUSTERED_LIGHTING.md`.

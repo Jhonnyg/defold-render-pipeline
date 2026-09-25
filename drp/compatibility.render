@@ -1,0 +1,4 @@
+script: "/drp/drp.render_script"
+render_resources { name: "drp_compat_opaque" path: "/drp/materials/compat_opaque.material" }
+render_resources { name: "drp_compat_mask" path: "/drp/materials/compat_mask.material" }
+render_resources { name: "drp_compat_transparent" path: "/drp/materials/compat_transparent.material" }

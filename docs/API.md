@@ -19,7 +19,7 @@ Supported options:
 | --- | --- | --- |
 | `quality` | string | Initial requested profile. |
 | `platform` | string | Overrides platform detection. Useful in tests. |
-| `capabilities` | table | Capability fields supplied by a future native provider or a test. |
+| `capabilities` | table | Capability fields applied over native detection, primarily for tests or application-enforced limits. |
 | `strict_capabilities` | boolean | Treat unknown required capabilities as unsupported. |
 | `overrides` | table | Runtime settings merged onto the resolved profile. |
 
@@ -122,8 +122,20 @@ Capability values use three states:
 | `false` | Confirmed unsupported. |
 | `nil` | Unknown to the current provider. |
 
-The Lua provider currently detects the platform only. A later native milestone
-will populate GPU feature and limit fields.
+When the native bridge is loaded, it reports the active adapter, compute and
+storage-buffer support, related graphics features, and device limits. Explicit
+values passed to `initialize()` or `set_capabilities()` take precedence. Fields
+that the public engine API cannot query yet, such as float render-target support,
+remain `nil`. Forward+ resolution also checks storage binding counts,
+compute workgroup dimensions and invocations, shared memory, and the LightBuffer
+uniform range. Insufficient values trigger profile fallback; unknown required
+limits trigger fallback in strict mode. Compatibility exports report
+`features.clustered_resources = false`, which runtime capability overrides
+cannot enable again. See [compatibility builds](COMPATIBILITY.md).
+
+The low-level storage-buffer bridge is internal infrastructure for DRP feature
+modules rather than part of the stable application-facing facade. See
+[`NATIVE_BRIDGE.md`](NATIVE_BRIDGE.md) for its contract.
 
 ## Notifications
 
@@ -154,3 +166,19 @@ Removes a previously registered callback.
 Returns a defensive snapshot containing initialization state, frame number,
 requested quality, effective quality, pending request, active profile, and
 capabilities.
+
+### `drp.get_feature_diagnostics(name)`
+
+Returns a defensive snapshot of CPU-visible diagnostics for a feature. The
+currently supported name is `"clustered"`. Its record contains the grid,
+effective capacities, per-buffer byte sizes, total storage use, whether device
+limits clamped the profile, and a conservative maximum assignment workload.
+
+```lua
+local cluster = drp.get_feature_diagnostics("clustered")
+print(cluster.cluster_count, cluster.storage_bytes)
+```
+
+Exact occupancy, dropped-light, and overflowing-cluster counters are produced
+on the GPU. Until Defold exposes asynchronous storage-buffer readback, inspect
+those values through `lighting.cluster_debug`; magenta identifies overflow.

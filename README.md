@@ -5,10 +5,12 @@ extension for Defold. Its intended scope includes Forward+ clustered lighting,
 PBR materials, shadows, HDR, ambient occlusion, depth of field, and rendering
 diagnostics.
 
-The current milestone deliberately implements **configuration only**. It
-contains the package structure, public Lua facade, pipeline lifecycle, quality
-profiles, capability-based fallback, and resource declarations. It does not yet
-render scene content or implement any advanced rendering feature.
+The current milestone implements the configuration foundation, native
+storage-buffer bridge, Forward+ light assignment, and asset-pbr-based clustered
+shading for opaque, alpha-masked, and transparent models. The cluster grid and
+per-cluster light lists are extension-owned SSBOs. Punctual light data remains
+in Defold's engine-owned `LightBuffer` UBO and is consumed directly by both the
+assignment compute shader and clustered PBR materials.
 
 ## Current API
 
@@ -41,14 +43,39 @@ render script.
 - `high`: higher light, shadow, and post-processing budgets.
 - `ultra`: experimental maximum-quality target.
 
-Profiles describe future rendering intent. The settings do not activate
-rendering features in this milestone.
+The `balanced`, `high`, and `ultra` profiles activate clustered lighting. On a
+cluster-capable device, switching to `compatibility` uses conventional asset-pbr
+material overrides for the same scene. Other profile settings still describe
+future rendering intent.
+
+Devices without compute/SSBO support need a **compatibility build**: Defold loads
+render and model shader resources before the Lua quality fallback can run.
+Generate a separate source tree that preserves scene and material paths:
+
+```sh
+python3 tools/prepare_compatibility.py --output /tmp/drp-compatibility
+```
+
+Build that directory with Bob or open it in Defold. The exporter selects a
+render resource without compute programs, replaces the three public clustered
+materials with conventional shaders, and locks the build to compatibility.
+The original project is unchanged. See [compatibility builds](docs/COMPATIBILITY.md).
 
 Read [the quality-profile documentation](docs/QUALITY_PROFILES.md) and
-[public API reference](docs/API.md) for details.
+[public API reference](docs/API.md) for details. Native bridge requirements and
+its internal Lua surface are documented in
+[the native bridge reference](docs/NATIVE_BRIDGE.md).
 
-The runnable [quality API example](examples/README.md) demonstrates profile
-registration, runtime overrides, quality requests, and transition callbacks.
+> **TODO — native glTF surface modes:** Automatic opaque, alpha-mask, and
+> transparent classification should ultimately be provided by Defold's import,
+> material, and default PBR systems rather than implemented independently by
+> DRP. The proposed engine/extension boundary is recorded in
+> [Native glTF PBR Surface Modes](docs/GLTF_PBR_SURFACE_MODES.md). Until then,
+> DRP model material slots use explicit clustered surface variants.
+
+The runnable [Sponza clustered-shading example](examples/README.md) is the
+default bootstrap collection. Smaller cluster-assignment and quality API
+examples remain available for focused testing.
 
 ## Project configuration
 
@@ -56,20 +83,35 @@ registration, runtime overrides, quality requests, and transition callbacks.
 [bootstrap]
 render = /drp/drp.renderc
 
+[light]
+max_count = 64
+
+[shader]
+exclude_gles_sm100 = 1
+
 [drp]
 default_profile = balanced
 fallback_profile = compatibility
 strict_capabilities = 0
 ```
 
-With strict capabilities disabled, an unknown capability does not reject a
-profile. An explicitly unsupported capability still causes fallback. Strict
-mode treats both unknown and unsupported requirements as unavailable.
+With strict capabilities disabled, an unknown capability or limit does not
+reject a profile. Explicitly unsupported features and insufficient binding,
+workgroup, shared-memory, or uniform-buffer limits cause fallback. Strict mode
+also rejects unknown required limits. Runtime settings are applied before
+validating these requirements.
 
 ## Status
 
-The project is establishing stable configuration and lifecycle contracts before
-porting code from the exploratory clustered renderer. See the design documents
-in `docs/` for the intended architecture and next steps.
+The configuration contracts, native SSBO bridge, clustered assignment,
+asset-pbr-based clustered shading, transparent ordering, and runtime
+compatibility overrides are active. Automatically assigning a clustered
+material from imported material metadata still needs an editor/build-pipeline
+integration. Shadows, HDR, and post-processing remain future work. See
+[clustered lighting](docs/CLUSTERED_LIGHTING.md) for the current pass and
+resource contract. The feature is functionally complete for its current MVP1
+scope; its remaining validation and pre-PR work is tracked in the
+[clustered feature README](drp/features/clustered/README.md). Regression checks
+and their commands are documented in [tests/README.md](tests/README.md).
 
 ---

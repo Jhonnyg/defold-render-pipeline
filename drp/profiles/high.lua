@@ -1,3 +1,5 @@
+local clustered = require("drp.features.clustered.config")
+
 return {
 	name = "high",
 	description = "Higher quality Forward+ profile for desktop and console-class hardware.",
@@ -7,7 +9,8 @@ return {
 		lighting = {
 			cluster_tile_size = 64,
 			cluster_z_slices = 24,
-			max_lights_per_cluster = 128,
+			-- First clustered iteration consumes the engine-owned 64-light UBO.
+			max_lights_per_cluster = clustered.max_lights_per_cluster,
 		},
 		shadows = {
 			quality = "pcss",

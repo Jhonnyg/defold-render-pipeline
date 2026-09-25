@@ -1,5 +1,6 @@
 local capabilities = require("drp.capabilities")
 local utils = require("drp.utils")
+local clustered_requirements = require("drp.features.clustered.requirements")
 
 local M = {}
 
@@ -128,10 +129,28 @@ end
 local function missing_requirements(profile, detected)
 	local missing = {}
 	local features = detected.features or {}
+	local checked = {}
 	for _, requirement in ipairs(profile.requirements) do
+		checked[requirement] = true
 		local value = features[requirement]
 		if value == false or (detected.strict and value ~= true) then
 			missing[#missing + 1] = requirement
+		end
+	end
+	if profile.settings.rendering and profile.settings.rendering.path == "forward_plus" then
+		-- Custom profiles and runtime path overrides cannot omit the core GPU
+		-- requirements merely by leaving them out of the profile's list.
+		for _, name in ipairs({ "compute_shaders", "storage_buffers" }) do
+			local value = features[name]
+			if not checked[name] and (value == false or (detected.strict and value ~= true)) then
+				missing[#missing + 1] = name
+			end
+		end
+		for _, reason in ipairs(clustered_requirements.missing_limits(detected)) do
+			missing[#missing + 1] = reason
+		end
+		if features.clustered_resources == false then
+			missing[#missing + 1] = "clustered resources are excluded from this build"
 		end
 	end
 	return missing
@@ -175,8 +194,9 @@ end
 ---the profile fallback chain.
 ---@param requested string
 ---@param detected table
+---@param settings_overrides table|nil Settings applied before requirement validation.
 ---@return table|nil, string|nil
-function M.resolve(requested, detected)
+function M.resolve(requested, detected, settings_overrides)
 	detected = detected or capabilities.detect()
 	local attempted = {}
 	local reasons = {}
@@ -193,6 +213,7 @@ function M.resolve(requested, detected)
 			return nil, err
 		end
 		apply_platform_override(profile, detected.platform or "unknown")
+		utils.merge(profile.settings, settings_overrides or {})
 
 		local missing = missing_requirements(profile, detected)
 		if #missing == 0 then
@@ -205,7 +226,7 @@ function M.resolve(requested, detected)
 		end
 
 		reasons[#reasons + 1] = string.format(
-			"profile '%s' requires unsupported capabilities: %s",
+			"profile '%s' has unavailable requirements: %s",
 			candidate,
 			utils.join(missing, ", ")
 		)

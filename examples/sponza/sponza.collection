@@ -1,0 +1,139 @@
+name: "sponza"
+instances {
+  id: "sponza"
+  prototype: "/examples/sponza/sponza.go"
+}
+instances {
+  id: "transparent_cube"
+  prototype: "/examples/sponza/transparent_cube.go"
+  position {
+    x: 1.0
+    y: 1.5
+  }
+  rotation {
+    y: 0.38268343
+    w: 0.9238795
+  }
+  scale3 {
+    x: 0.75
+    y: 0.75
+    z: 0.75
+  }
+}
+instances {
+  id: "sun"
+  prototype: "/examples/sponza/sun.go"
+  rotation {
+    x: -0.70710677
+    w: 0.70710677
+  }
+}
+instances {
+  id: "ambient"
+  prototype: "/examples/sponza/ambient.go"
+}
+instances {
+  id: "warm_0"
+  prototype: "/examples/clustered_renderer/warm_light.go"
+  position {
+    x: 6.0
+    y: 4.642091
+    z: -3.701717
+  }
+}
+instances {
+  id: "cool_0"
+  prototype: "/examples/clustered_renderer/cool_light.go"
+  position {
+    x: 6.0
+    y: 3.390859
+    z: 2.5
+  }
+}
+instances {
+  id: "warm_1"
+  prototype: "/examples/clustered_renderer/warm_light.go"
+  position {
+    x: 2.0
+    y: 4.642091
+    z: -3.701717
+  }
+}
+instances {
+  id: "cool_1"
+  prototype: "/examples/clustered_renderer/cool_light.go"
+  position {
+    x: 2.0
+    y: 2.482574
+    z: 2.5
+  }
+}
+instances {
+  id: "warm_2"
+  prototype: "/examples/clustered_renderer/warm_light.go"
+  position {
+    x: -2.0
+    y: 4.642091
+    z: -3.701717
+  }
+}
+instances {
+  id: "cool_2"
+  prototype: "/examples/clustered_renderer/cool_light.go"
+  position {
+    x: -2.0
+    y: 2.482574
+    z: 2.5
+  }
+}
+instances {
+  id: "warm_3"
+  prototype: "/examples/clustered_renderer/warm_light.go"
+  position {
+    x: -6.0
+    y: 4.642091
+    z: -3.701717
+  }
+}
+instances {
+  id: "cool_3"
+  prototype: "/examples/clustered_renderer/cool_light.go"
+  position {
+    x: -6.0
+    y: 2.482574
+    z: 2.5
+  }
+}
+scale_along_z: 0
+embedded_instances {
+  id: "camera"
+  data: "components {\n"
+  "  id: \"vantage\"\n"
+  "  component: \"/vantage/vantage_component.script\"\n"
+  "  properties {\n"
+  "    id: \"first_person_movement_speed\"\n"
+  "    value: \"3.0\"\n"
+  "    type: PROPERTY_TYPE_NUMBER\n"
+  "  }\n"
+  "}\n"
+  "embedded_components {\n"
+  "  id: \"camera\"\n"
+  "  type: \"camera\"\n"
+  "  data: \"aspect_ratio: 1.0\\n"
+  "fov: 0.7854\\n"
+  "near_z: 0.05\\n"
+  "far_z: 100.0\\n"
+  "auto_aspect_ratio: 1\\n"
+  "\"\n"
+  "}\n"
+  ""
+  position {
+    x: 3.866715
+    y: 2.0
+    z: -0.802087
+  }
+  rotation {
+    y: 0.7049931
+    w: 0.70921415
+  }
+}
