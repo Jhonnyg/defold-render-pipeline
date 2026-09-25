@@ -1,6 +1,7 @@
 local native = require("drp.native")
 local resources = require("drp.resources")
 local config = require("drp.features.clustered.config")
+local requirements = require("drp.features.clustered.requirements")
 
 local M = {}
 M.name = "clustered"
@@ -132,9 +133,17 @@ local function configure(context, width, height)
 	end
 
 	local features = context.capabilities and context.capabilities.features or {}
-	if features.compute_shaders == false or features.storage_buffers == false then
+	if features.compute_shaders == false or features.storage_buffers == false or
+		features.clustered_resources == false then
 		state.available = false
-		warn_once("compute shaders or storage buffers are unsupported")
+		warn_once("compute shaders, storage buffers, or clustered render resources are unavailable")
+		return
+	end
+
+	local missing_limits = requirements.missing_limits(context.capabilities or {})
+	if #missing_limits > 0 then
+		state.available = false
+		warn_once(table.concat(missing_limits, "; "))
 		return
 	end
 
@@ -148,6 +157,11 @@ local function configure(context, width, height)
 
 	local grid_x = ceil_div(width, tile_size)
 	local grid_y = ceil_div(height, tile_size)
+	if grid_x > 65535 or grid_y > 65535 or grid_z > 65535 then
+		state.available = false
+		warn_once("cluster dimensions exceed the portable compute dispatch limit")
+		return
+	end
 	local tile_count = grid_x * grid_y
 	local cluster_count = grid_x * grid_y * grid_z
 	local maximum_range = context.capabilities and context.capabilities.limits and
@@ -306,7 +320,7 @@ end
 local function reset_clusters(assign)
 	render.set_compute("drp_cluster_reset")
 	bind_cluster_buffers()
-	render.dispatch_compute(ceil_div(state.grid_x * state.grid_y, 64), 1, 1, {
+	render.dispatch_compute(ceil_div(state.grid_x, 64), state.grid_y, 1, {
 		constants = assign,
 	})
 	render.set_compute()
@@ -329,7 +343,7 @@ local function build_clusters(build, assign)
 	-- LightBuffer UBO by reflected block name. DRP only binds its own SSBOs.
 	render.set_compute("drp_cluster_assign")
 	bind_cluster_buffers()
-	render.dispatch_compute(state.grid_x * state.grid_y * state.grid_z, 1, 1, {
+	render.dispatch_compute(state.grid_x, state.grid_y, state.grid_z, {
 		constants = assign,
 	})
 	render.set_compute()
@@ -533,7 +547,11 @@ function M.render(context)
 		return
 	end
 
-	if not state.enabled or not state.available then
+	-- Logarithmic slices require positive view depths. Orthographic cameras
+	-- whose clip range crosses the eye use forward shading for this frame.
+	local camera_near = camera.get_near_z(camera_component)
+	local camera_far = camera.get_far_z(camera_component)
+	if not state.enabled or not state.available or camera_near <= 0 or camera_far <= camera_near then
 		begin_scene(camera_component)
 		draw_compatibility()
 		end_scene()
@@ -542,8 +560,8 @@ function M.render(context)
 
 	local view = camera.get_view(camera_component)
 	local projection = camera.get_projection(camera_component)
-	local near_z = math.max(camera.get_near_z(camera_component), 0.0001)
-	local far_z = math.max(camera.get_far_z(camera_component), near_z + 0.0001)
+	local near_z = math.max(camera_near, 0.0001)
+	local far_z = math.max(camera_far, near_z + 0.0001)
 	update_projection(projection, near_z, far_z)
 	local common, build, assign = make_constants(context, view, projection, near_z, far_z)
 

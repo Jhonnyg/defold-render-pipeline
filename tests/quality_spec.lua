@@ -76,6 +76,10 @@ function M.run()
 	assert_equal("forward", fallback.profile.settings.rendering.path,
 		"compatibility keeps the conventional forward path")
 	assert(#fallback.reasons >= 2, "fallback should retain rejection reasons")
+	local invalid_path = quality.resolve("compatibility", unsupported_caps, {
+		rendering = { path = "forward_plus" },
+	})
+	assert_equal(nil, invalid_path, "runtime path overrides cannot bypass core GPU requirements")
 
 	local supported_web = capabilities.detect({
 		platform = "html5",

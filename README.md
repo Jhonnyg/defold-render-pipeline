@@ -43,11 +43,23 @@ render script.
 - `high`: higher light, shadow, and post-processing budgets.
 - `ultra`: experimental maximum-quality target.
 
-The `balanced`, `high`, and `ultra` profiles activate clustered lighting. The
-`compatibility` profile renders conventional `model` materials without compute
-or storage-buffer requirements. Cluster-authored predicates are replaced at
-draw time with conventional asset-pbr variants, so the same scene can be used
-by both paths. Other profile settings still describe future rendering intent.
+The `balanced`, `high`, and `ultra` profiles activate clustered lighting. On a
+cluster-capable device, switching to `compatibility` uses conventional asset-pbr
+material overrides for the same scene. Other profile settings still describe
+future rendering intent.
+
+Devices without compute/SSBO support need a **compatibility build**: Defold loads
+render and model shader resources before the Lua quality fallback can run.
+Generate a separate source tree that preserves scene and material paths:
+
+```sh
+python3 tools/prepare_compatibility.py --output /tmp/drp-compatibility
+```
+
+Build that directory with Bob or open it in Defold. The exporter selects a
+render resource without compute programs, replaces the three public clustered
+materials with conventional shaders, and locks the build to compatibility.
+The original project is unchanged. See [compatibility builds](docs/COMPATIBILITY.md).
 
 Read [the quality-profile documentation](docs/QUALITY_PROFILES.md) and
 [public API reference](docs/API.md) for details. Native bridge requirements and
@@ -83,9 +95,11 @@ fallback_profile = compatibility
 strict_capabilities = 0
 ```
 
-With strict capabilities disabled, an unknown capability does not reject a
-profile. An explicitly unsupported capability still causes fallback. Strict
-mode treats both unknown and unsupported requirements as unavailable.
+With strict capabilities disabled, an unknown capability or limit does not
+reject a profile. Explicitly unsupported features and insufficient binding,
+workgroup, shared-memory, or uniform-buffer limits cause fallback. Strict mode
+also rejects unknown required limits. Runtime settings are applied before
+validating these requirements.
 
 ## Status
 
@@ -97,6 +111,7 @@ integration. Shadows, HDR, and post-processing remain future work. See
 [clustered lighting](docs/CLUSTERED_LIGHTING.md) for the current pass and
 resource contract. The feature is functionally complete for its current MVP1
 scope; its remaining validation and pre-PR work is tracked in the
-[clustered feature README](drp/features/clustered/README.md).
+[clustered feature README](drp/features/clustered/README.md). Regression checks
+and their commands are documented in [tests/README.md](tests/README.md).
 
 ---

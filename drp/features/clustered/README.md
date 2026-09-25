@@ -26,27 +26,32 @@ The complete pass and resource contract is documented in
 - Basic transparent clustered shading with depth writes disabled and explicit
   back-to-front render-entry sorting.
 - Conventional compatibility rendering without duplicate scenes.
+- A compatibility-only export for devices unable to load compute/SSBO shaders.
+- Perspective and orthographic cluster bounds; clip ranges crossing the eye
+  use conventional shading because logarithmic slicing needs positive depth.
 - Animated/per-frame light reassignment.
 - Surface occupancy and overflow heatmap.
 - Public CPU-visible grid, capacity, workload, and allocation diagnostics.
 
 ## Remaining before an MVP1 PR/release
 
-### Capability-limit validation
+### Automated coverage
 
-- Require enough storage-buffer bindings for the six cluster resources.
-- Require a compute workgroup width/invocation count of at least 64.
-- Validate required shared memory and remaining device limits.
-- Fall back to the compatibility profile when a limit is insufficient.
-
-### Automated tests
-
-- Add Lua tests for grid calculation, capacity reduction, allocation sizing,
-  profile transitions, resize, and buffer lifetime.
-- Add CPU reference cases for logarithmic slicing, AABBs, sphere/cone tests,
-  depth ranges, contribution ordering, and overflow boundaries.
+- `tests/clustered_spec.lua` checks 4K dispatch dimensions, exact device-limit
+  boundaries, strict capability fallback, projection invalidation, capacity
+  reduction, 60 resize/profile transitions, and buffer lifetime with a mocked
+  render runtime.
+- `tests/cluster_geometry_spec.cpp` compiles the actual GLSL geometry helpers
+  and checks perspective/orthographic rays plus 20,000 conservative spotlight
+  intersection cases.
+- `tests/compatibility_spec.py` checks source preservation and walks the
+  exported material/render dependency graph to reject compute/SSBO resources.
 - Add deterministic GPU smoke scenes for shading, masks, transparency, empty
-  clusters, overflow, animated lights, and compatibility overrides.
+  clusters, overflow, animated lights, and compatibility overrides. CPU tests
+  do not replace backend image comparisons or GPU synchronization validation.
+
+Required binding, workgroup, shared-memory, and uniform-buffer limits now
+participate in quality resolution. See [the test commands](../../../tests/README.md).
 
 ### Runtime stress testing
 
@@ -90,4 +95,3 @@ The complete pass and resource contract is documented in
 - A dedicated full-screen cluster/Z-slice inspector.
 - Shadows, HDR, ambient occlusion, and post-processing; these are separate DRP
   features rather than clustered-lighting MVP1 requirements.
-

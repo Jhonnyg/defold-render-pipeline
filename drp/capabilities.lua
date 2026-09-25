@@ -66,6 +66,11 @@ function M.detect(overrides)
 
 	utils.merge(result, get_native_capabilities() or {})
 	utils.merge(result, overrides or {})
+	-- This is a build constraint, not a device capability. Runtime overrides
+	-- cannot restore GPU programs omitted by the compatibility build.
+	if _G.sys and sys.get_config and sys.get_config("drp.clustered_resources", "1") == "0" then
+		result.features.clustered_resources = false
+	end
 	result.platform = normalize_platform(result.platform)
 	return result
 end

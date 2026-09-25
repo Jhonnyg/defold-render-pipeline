@@ -28,12 +28,13 @@ layout(std430, set = 2, binding = 4) buffer ClusterCountersBuffer
 
 void main()
 {
-    uint index = gl_GlobalInvocationID.x;
-    uint tile_count = uint(cluster_grid.x * cluster_grid.y);
-    if (index < tile_count)
+    uvec2 tile = uvec2(gl_GlobalInvocationID.x, gl_WorkGroupID.y);
+    if (any(greaterThanEqual(tile, uvec2(cluster_grid.xy))))
     {
-        cluster_depth_ranges[index] = uvec2(0xffffffffu, 0u);
+        return;
     }
+    uint index = tile.x + uint(cluster_grid.x) * tile.y;
+    cluster_depth_ranges[index] = uvec2(0xffffffffu, 0u);
     if (index == 0u)
     {
         cluster_counters[0] = 0u;

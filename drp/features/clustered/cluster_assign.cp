@@ -1,6 +1,7 @@
 #version 430
 
 #include "/drp/shaders/clustered_config.glsl"
+#include "/drp/shaders/cluster_geometry.glsl"
 
 // Builds the compact light list consumed by clustered fragment shaders.
 // One workgroup handles one cluster, with one lane testing each entry in the
@@ -76,40 +77,7 @@ shared uint match_flags[DRP_CLUSTER_LIGHT_CAPACITY];
 shared float candidate_scores[DRP_CLUSTER_LIGHT_CAPACITY];
 shared uint accepted_indices[DRP_CLUSTER_LIST_CAPACITY];
 shared uint accepted_count;
-
-bool sphere_aabb(vec3 position, float radius, vec3 minimum, vec3 maximum)
-{
-    // Clamping the sphere center to the box gives the closest point on or in
-    // the AABB. The sphere intersects when that point is inside its radius.
-    vec3 distance = position - clamp(position, minimum, maximum);
-    return dot(distance, distance) <= radius * radius;
-}
-
-bool cone_aabb(vec3 position, vec3 direction, float range, float half_angle,
-    vec3 minimum, vec3 maximum)
-{
-    // Reject against the spotlight's range first. The remaining conservative
-    // cone test uses the cluster's enclosing sphere to avoid false negatives.
-    if (!sphere_aabb(position, range, minimum, maximum))
-    {
-        return false;
-    }
-
-    vec3 center = (minimum + maximum) * 0.5;
-    vec3 extent = (maximum - minimum) * 0.5;
-    float cluster_radius = length(extent);
-    vec3 offset = center - position;
-    float axial_center = dot(offset, direction);
-    if (axial_center + cluster_radius < 0.0 || axial_center - cluster_radius > range)
-    {
-        return false;
-    }
-
-    vec3 radial_offset = offset - direction * axial_center;
-    float radial_distance = length(radial_offset);
-    float cone_radius = tan(half_angle) * clamp(axial_center, 0.0, range);
-    return radial_distance <= cone_radius + cluster_radius;
-}
+shared uint accepted_offset;
 
 bool evaluate_candidate(Light light, ClusterBounds bounds, out float score)
 {
@@ -188,7 +156,8 @@ uint inclusive_scan(uint value)
 
 void main()
 {
-    uint cluster_index = gl_WorkGroupID.x;
+    uint cluster_index = gl_WorkGroupID.x + uint(cluster_grid.x) *
+        (gl_WorkGroupID.y + uint(cluster_grid.y) * gl_WorkGroupID.z);
     uint cluster_count = uint(cluster_grid.x * cluster_grid.y * cluster_grid.z);
     if (cluster_index >= cluster_count)
     {
@@ -278,11 +247,13 @@ void main()
         }
         atomicMax(cluster_counters[3], candidates);
         accepted_count = write_count;
+        accepted_offset = offset;
     }
     barrier();
 
-    // Cooperatively copy the workgroup-local selection to the reserved range.
-    uint output_offset = cluster_metadata[cluster_index].x;
+    // Publish the offset through shared memory. barrier() makes shared writes
+    // visible to every lane; it does not synchronize SSBO reads from metadata.
+    uint output_offset = accepted_offset;
     for (uint index = lane; index < accepted_count; index += gl_WorkGroupSize.x)
     {
         cluster_light_indices[output_offset + index] = accepted_indices[index];

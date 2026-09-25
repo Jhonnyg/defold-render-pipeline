@@ -126,7 +126,12 @@ When the native bridge is loaded, it reports the active adapter, compute and
 storage-buffer support, related graphics features, and device limits. Explicit
 values passed to `initialize()` or `set_capabilities()` take precedence. Fields
 that the public engine API cannot query yet, such as float render-target support,
-remain `nil`.
+remain `nil`. Forward+ resolution also checks storage binding counts,
+compute workgroup dimensions and invocations, shared memory, and the LightBuffer
+uniform range. Insufficient values trigger profile fallback; unknown required
+limits trigger fallback in strict mode. Compatibility exports report
+`features.clustered_resources = false`, which runtime capability overrides
+cannot enable again. See [compatibility builds](COMPATIBILITY.md).
 
 The low-level storage-buffer bridge is internal infrastructure for DRP feature
 modules rather than part of the stable application-facing facade. See

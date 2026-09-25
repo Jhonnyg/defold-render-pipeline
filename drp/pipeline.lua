@@ -68,11 +68,11 @@ local function feature_context(dt, transition)
 end
 
 local function resolve(name)
-	local resolution, err = quality.resolve(name, state.capabilities)
+	local resolution, err = quality.resolve(name, state.capabilities, state.runtime_overrides)
 	if not resolution then
 		return nil, err
 	end
-	return quality.with_settings_overrides(resolution, state.runtime_overrides)
+	return resolution
 end
 
 local function notify(transition)
@@ -242,8 +242,13 @@ function M.set_capabilities(capability_overrides)
 	if not state.initialized then
 		return nil, "DRP must be initialized before capabilities can be changed"
 	end
+	local previous = state.capabilities
 	state.capabilities = capabilities.detect(capability_overrides or {})
-	return queue_requested_profile(state.active.requested)
+	local resolution, err = queue_requested_profile(state.active.requested)
+	if not resolution then
+		state.capabilities = previous
+	end
+	return resolution, err
 end
 
 function M.get_requested_quality()
@@ -289,8 +294,13 @@ function M.set_runtime_overrides(overrides)
 	if not state.initialized then
 		return nil, "DRP must be initialized before runtime overrides can be changed"
 	end
+	local previous = state.runtime_overrides
 	state.runtime_overrides = utils.copy(overrides)
-	return queue_requested_profile(state.active.requested)
+	local resolution, err = queue_requested_profile(state.active.requested)
+	if not resolution then
+		state.runtime_overrides = previous
+	end
+	return resolution, err
 end
 
 function M.clear_runtime_overrides()

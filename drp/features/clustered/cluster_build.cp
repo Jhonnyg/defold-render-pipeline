@@ -1,5 +1,7 @@
 #version 430
 
+#include "/drp/shaders/cluster_geometry.glsl"
+
 // Reconstructs one view-space AABB for every cell in the clustered-lighting
 // grid. XY comes from screen tiles and Z uses logarithmic camera-depth slices.
 
@@ -24,17 +26,10 @@ layout(std430, set = 2, binding = 0) buffer ClusterBoundsBuffer
     ClusterBounds cluster_bounds[];
 };
 
-vec3 view_ray(vec2 ndc)
+vec3 unproject(vec2 ndc, float clip_depth)
 {
-    // Unproject a point on the far clip plane; only the ray direction matters.
-    vec4 position = inverse_projection * vec4(ndc, 1.0, 1.0);
+    vec4 position = inverse_projection * vec4(ndc, clip_depth, 1.0);
     return position.xyz / position.w;
-}
-
-vec3 point_at_depth(vec3 ray, float depth)
-{
-    // Defold view space looks down -Z, while the depth values are positive.
-    return ray * (-depth / ray.z);
 }
 
 void main()
@@ -72,9 +67,10 @@ void main()
             (corner & 1u) != 0u ? ndc_max.x : ndc_min.x,
             (corner & 2u) != 0u ? ndc_max.y : ndc_min.y
         );
-        vec3 ray = view_ray(ndc);
-        vec3 near_point = point_at_depth(ray, depth_min);
-        vec3 far_point = point_at_depth(ray, depth_max);
+        vec3 origin = unproject(ndc, -1.0);
+        vec3 direction = unproject(ndc, 1.0) - origin;
+        vec3 near_point = point_at_depth(origin, direction, depth_min);
+        vec3 far_point = point_at_depth(origin, direction, depth_max);
         minimum = min(minimum, min(near_point, far_point));
         maximum = max(maximum, max(near_point, far_point));
     }
