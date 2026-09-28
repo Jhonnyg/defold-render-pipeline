@@ -35,6 +35,10 @@ future render-target and GPU-buffer reallocations away from mid-frame state.
 
 ### `drp.finalize()`
 
+Call from a render-script callback for explicit runtime teardown. Defold render
+scripts have no `final()` callback. Engine/native-extension teardown handles
+application exit.
+
 Clears pipeline state, resource declarations, and listeners.
 
 ### `drp.reload()`
@@ -182,3 +186,24 @@ print(cluster.cluster_count, cluster.storage_bytes)
 Exact occupancy, dropped-light, and overflowing-cluster counters are produced
 on the GPU. Until Defold exposes asynchronous storage-buffer readback, inspect
 those values through `lighting.cluster_debug`; magenta identifies overflow.
+
+## HDR rendering
+
+Add `/drp/features/hdr/hdr.go` once to the loaded scene; the Sponza and
+clustered-renderer examples already include it. `balanced`, `high`, and `ultra`
+enable HDR. The compatibility profile defaults to direct LDR output.
+
+```lua
+assert(drp.set_runtime_overrides({
+    rendering = { hdr = true, hdr_exposure = 1.0 },
+}))
+local hdr = drp.get_feature_diagnostics("hdr")
+```
+
+`hdr_exposure` is manual EV, defaults to 0, and is clamped to [-16, 16]. Changes
+activate at frame boundaries. `hdr = false` restores direct LDR output.
+Diagnostics report `enabled`, `available`, `reason`, `width`, `height`,
+`exposure`, `tone_mapper`, `color_format`, `color_bytes`, and `presenter_loaded`.
+`color_bytes` excludes the backend-dependent depth attachment. Missing presenter
+geometry or unsupported targets disable HDR while retaining scene rendering.
+See [HDR](../drp/features/hdr/README.md) for material and custom-render integration.

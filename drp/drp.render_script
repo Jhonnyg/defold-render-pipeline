@@ -23,8 +23,12 @@ function update(self, dt)
 	end
 end
 
-function final(self)
-	pipeline.finalize()
+-- Defold render scripts have no final() callback. Defining one here leaves a
+-- global that can leak into game scripts in a shared Lua state. Runtime
+-- teardown is explicit via pipeline.finalize() from a render-script callback.
+
+function on_message(self, message_id, message, sender)
+	pipeline.on_message(message_id, message, sender)
 end
 
 function on_reload(self)

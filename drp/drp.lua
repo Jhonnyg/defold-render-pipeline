@@ -51,6 +51,18 @@ local quality = require("drp.quality")
 ---@field depth_range_culling boolean Whether tile depth ranges reject empty slices.
 ---@field buffer_sizes table<string, integer> Per-buffer allocation sizes.
 
+---@class drp.HDRDiagnostics
+---@field enabled boolean Whether the profile requests HDR.
+---@field available boolean Whether an HDR scene target and presenter are available.
+---@field reason string|nil Why HDR is inactive.
+---@field width integer Target width in physical pixels.
+---@field height integer Target height in physical pixels.
+---@field exposure number Effective exposure in EV stops.
+---@field tone_mapper string Tone-mapping curve name.
+---@field color_format string Scene color format.
+---@field color_bytes integer Scene color allocation, excluding depth.
+---@field presenter_loaded boolean Whether the fullscreen presenter is loaded.
+
 ---@class drp.QualityTransition
 ---@field frame integer Frame on which the transition became active.
 ---@field dt number Delta time passed to `drp.begin_frame()`.
@@ -84,8 +96,9 @@ end
 
 ---Finalizes the pipeline and clears resource declarations and listeners.
 ---
----Call this from the render script's `final()` lifecycle function. The bundled
----DRP render script already does this.
+---Call this from a render-script callback when explicitly tearing down the
+---pipeline at runtime. Defold render scripts do not have a `final()` callback;
+---application exit is handled by engine/native-extension teardown.
 ---@return boolean finalized Always `true` after cleanup completes.
 function M.finalize()
 	return pipeline.finalize()
@@ -170,8 +183,8 @@ end
 ---The clustered record includes grid dimensions, effective capacities, buffer
 ---sizes, and the conservative assignment workload. Exact occupancy and
 ---overflow remain GPU-resident and are visualized by the clustered heatmap.
----@param name string Feature name; currently `"clustered"`.
----@return drp.ClusteredDiagnostics|nil diagnostics
+---@param name string Feature name: `"clustered"` or `"hdr"`.
+---@return drp.ClusteredDiagnostics|drp.HDRDiagnostics|nil diagnostics
 ---@return string|nil error
 function M.get_feature_diagnostics(name)
 	return pipeline.get_feature_diagnostics(name)

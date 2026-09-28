@@ -45,8 +45,9 @@ render script.
 
 The `balanced`, `high`, and `ultra` profiles activate clustered lighting. On a
 cluster-capable device, switching to `compatibility` uses conventional asset-pbr
-material overrides for the same scene. Other profile settings still describe
-future rendering intent.
+material overrides for the same scene. These profiles also enable HDR scene
+rendering and tone mapping; compatibility defaults to LDR. Shadow and other post-processing settings still describe future
+rendering intent. See [HDR setup and controls](drp/features/hdr/README.md).
 
 Devices without compute/SSBO support need a **compatibility build**: Defold loads
 render and model shader resources before the Lua quality fallback can run.
@@ -107,7 +108,9 @@ The configuration contracts, native SSBO bridge, clustered assignment,
 asset-pbr-based clustered shading, transparent ordering, and runtime
 compatibility overrides are active. Automatically assigning a clustered
 material from imported material metadata still needs an editor/build-pipeline
-integration. Shadows, HDR, and post-processing remain future work. See
+integration. HDR scene rendering, manual exposure, and ACES-style tone mapping
+are implemented as a separate feature. Shadows and the remaining post effects
+remain future work. See
 [clustered lighting](docs/CLUSTERED_LIGHTING.md) for the current pass and
 resource contract. The feature is functionally complete for its current MVP1
 scope; its remaining validation and pre-PR work is tracked in the

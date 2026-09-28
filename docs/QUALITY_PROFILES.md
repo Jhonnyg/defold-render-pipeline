@@ -110,3 +110,17 @@ assert(ok, err)
 
 Register custom profiles before requesting them. A future editor integration can
 compile profile assets into the same runtime representation.
+
+## HDR settings
+
+`rendering.hdr` enables a linear RGBA16F scene target and a final ACES-style
+tone-map/sRGB pass. It is true for balanced/high/ultra and false for compatibility.
+`rendering.hdr_exposure` defaults to 0 EV and can be changed through the same
+runtime override API, without reallocating the target. HDR can also be enabled
+for the compatibility path on supported devices.
+
+HDR availability is independent of clustered lighting: a missing presenter or
+unsupported floating-point target falls back to direct LDR while retaining the
+selected lighting profile. Strict capability mode requires an explicit positive
+`float_render_targets` capability; non-strict mode attempts allocation when it
+is unknown. The cluster heatmap always bypasses tone mapping.

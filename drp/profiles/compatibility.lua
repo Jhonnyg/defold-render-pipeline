@@ -7,6 +7,7 @@ return {
 			path = "forward",
 			render_scale = 1.0,
 			hdr = false,
+			hdr_exposure = 0,
 		},
 		lighting = {
 			max_lights_per_object = 8,

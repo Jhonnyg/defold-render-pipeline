@@ -226,6 +226,10 @@ function M.render()
 	return true
 end
 
+function M.on_message(message_id, message, sender)
+	features.on_message(state.feature_context or feature_context(), message_id, message, sender)
+end
+
 function M.is_initialized()
 	return state.initialized
 end

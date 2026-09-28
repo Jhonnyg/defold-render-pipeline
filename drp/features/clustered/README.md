@@ -93,5 +93,5 @@ participate in quality resolution. See [the test commands](../../../tests/README
 - Order-independent transparency.
 - Asynchronous GPU counter readback.
 - A dedicated full-screen cluster/Z-slice inspector.
-- Shadows, HDR, ambient occlusion, and post-processing; these are separate DRP
+- Shadows, ambient occlusion, and further post-processing; these are separate DRP
   features rather than clustered-lighting MVP1 requirements.

@@ -137,3 +137,8 @@ embedded_instances {
     w: 0.70921415
   }
 }
+
+instances {
+  id: "drp_hdr"
+  prototype: "/drp/features/hdr/hdr.go"
+}

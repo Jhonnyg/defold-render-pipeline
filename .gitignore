@@ -2,6 +2,7 @@
 /.internal
 /build
 /docs/internal
+/tests
 .externalToolBuilders
 .DS_Store
 Thumbs.db
