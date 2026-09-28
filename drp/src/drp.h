@@ -4,6 +4,7 @@
 #ifndef DM_DRP_H
 #define DM_DRP_H
 
+#include <dmsdk/dlib/array.h>
 #include <dmsdk/graphics/graphics.h>
 
 #include <stdint.h>
@@ -15,10 +16,12 @@ struct lua_State;
  * Internal interface shared by the DRP extension lifecycle, Lua bindings, and
  * graphics implementation. This is not a public dmSDK header.
  *
- * dmDRP owns its storage-buffer records and GPU buffers, but borrows the engine's
- * graphics context and Lua state. State is process-global and unsynchronized;
- * callers must use the engine's graphics thread with a live context for GPU
- * operations. Finalize graphics before the engine destroys that context.
+ * The extension owns one DRPContext per application, registered as "drp" in
+ * the engine's context registry. Each context owns its buffer records and GPU
+ * buffers, and borrows its graphics context. Lua bindings borrow the DRPContext.
+ * State is unsynchronized; use the engine's graphics thread for GPU operations.
+ * Finalize graphics before the engine destroys its context, then delete the
+ * DRPContext during app finalization. The destructor releases CPU memory only.
  */
 
 // Engine-owned declarations: https://github.com/defold/defold/blob/dev/engine/graphics/src/graphics.h
@@ -82,40 +85,76 @@ namespace dmDRP
     };
 
     /**
-     * Opaque ID for a DRP-owned storage buffer, not a dmGraphics GPU handle.
+     * Opaque ID for a buffer owned by one DRPContext, not a dmGraphics GPU handle.
+     * IDs are scoped to that context and must not be passed to another context.
      * Zero is invalid. Deletion, DeleteAllStorageBuffers(), and FinalizeGraphics()
      * invalidate IDs; callers must not keep using them after those operations.
      */
     typedef uint32_t StorageBufferId;
 
-    /**
-     * Store a borrowed graphics context without creating or destroying it.
-     * Called by extension initialization before InitializeScript(). Existing
-     * buffers are not cleared: finalize them before replacing their context.
-     * Passing 0 leaves context lookup to GetGraphicsContext().
-     */
-    void InitializeGraphics(dmGraphics::HContext context);
+    /** One GPU allocation tracked by its owning DRPContext. */
+    struct StorageBufferRecord
+    {
+        StorageBufferId            m_Id;
+        dmGraphics::HStorageBuffer m_Buffer;
+        dmGraphics::BufferUsage    m_Usage;
+    };
 
     /**
-     * Delete all tracked buffers and clear the cached context. Call while the
-     * engine context is still alive; this does not destroy the engine context
-     * or unregister the Lua module.
+     * Application-owned native state. Construct/register in AppInitialize,
+     * attach graphics in Initialize, release GPU resources in Finalize, and
+     * unregister/delete in AppFinalize. Never copy ownership of GPU buffers.
      */
-    void FinalizeGraphics();
+    struct DRPContext
+    {
+        dmGraphics::HContext         m_GraphicsContext;       ///< Borrowed; 0 before initialization and after finalization.
+        dmArray<StorageBufferRecord> m_StorageBuffers;        ///< Owned allocations; released by FinalizeGraphics().
+        StorageBufferId              m_NextStorageBufferId;   ///< Next ID candidate; preserved by buffer reset.
+
+        DRPContext()
+        : m_GraphicsContext(0)
+        , m_NextStorageBufferId(1)
+        {
+        }
+
+        DRPContext(const DRPContext&) = delete;
+        DRPContext& operator=(const DRPContext&) = delete;
+    };
 
     /**
-     * Register drp_native functions and constants in the supplied Lua state.
-     * L must be valid; it remains caller-owned and its stack depth is preserved.
-     * Registration does not create GPU resources or check SSBO support.
+     * Attach a borrowed graphics context without creating or destroying it.
+     * Existing buffers are not cleared: finalize them before replacing their
+     * graphics context. Passing 0 leaves graphics unavailable; no global lookup
+     * is performed.
      */
-    void InitializeScript(lua_State* L);
+    void InitializeGraphics(DRPContext* context, dmGraphics::HContext graphics_context);
 
     /**
-     * Return the borrowed context, lazily fetching and caching the engine's
-     * installed context when the cache is empty. May return 0 if unavailable;
-     * this lookup can also reacquire a context after FinalizeGraphics().
+     * Delete this context's buffers and clear its borrowed graphics pointer.
+     * Call while the engine graphics context is alive. Safe to repeat; retains
+     * the DRPContext and its ID counter, and does not detach Lua bindings.
      */
-    dmGraphics::HContext GetGraphicsContext();
+    void FinalizeGraphics(DRPContext* context);
+
+    /**
+     * Register drp_native functions/constants and a borrowed context in Lua's
+     * registry. L and context must be valid and outlive the binding. Stack depth
+     * is preserved; no GPU resources are created or SSBO support checks made.
+     */
+    void InitializeScript(lua_State* L, DRPContext* context);
+
+    /**
+     * Remove this Lua state's borrowed context without deleting native state.
+     * L must be valid. Stack depth is preserved; retained Lua functions report
+     * an unavailable context when called after detachment.
+     */
+    void FinalizeScript(lua_State* L);
+
+    /**
+     * Return this DRPContext's borrowed graphics pointer, or 0 when unattached.
+     * Never reacquires the engine's installed context after finalization.
+     */
+    dmGraphics::HContext GetGraphicsContext(DRPContext* context);
 
     /**
      * Return a static lowercase adapter name (for example, "metal").
@@ -124,13 +163,13 @@ namespace dmDRP
     const char* GetGraphicsAdapterName(dmGraphics::AdapterFamily family);
 
     /** Return false if no context is available or its adapter lacks SSBO support. */
-    bool IsStorageBufferSupported();
+    bool IsStorageBufferSupported(DRPContext* context);
 
     /**
-     * Test whether a nonzero ID is present in DRP's buffer registry.
-     * This does not query the context, GPU allocation, or current bindings.
+     * Test whether a nonzero ID is present in the supplied context's buffer registry.
+     * This does not query the graphics context, GPU allocation, or current bindings.
      */
-    bool IsStorageBufferValid(StorageBufferId buffer_id);
+    bool IsStorageBufferValid(DRPContext* context, StorageBufferId buffer_id);
 
     /**
      * Allocate and track a storage buffer. The caller must delete it explicitly
@@ -143,7 +182,7 @@ namespace dmDRP
      * @return A nonzero ID, or 0 for no context, missing SSBO support, invalid size,
      *         or a failed engine allocation. This wrapper does not validate usage.
      */
-    StorageBufferId CreateStorageBuffer(uint32_t size, const void* data, dmGraphics::BufferUsage usage);
+    StorageBufferId CreateStorageBuffer(DRPContext* context, uint32_t size, const void* data, dmGraphics::BufferUsage usage);
 
     /**
      * Replace a buffer's storage and usage hint, keeping its DRP ID and bindings.
@@ -152,13 +191,14 @@ namespace dmDRP
      * @param size Nonzero byte count divisible by four and within adapter limits.
      * @param data Optional replacement source with at least size readable bytes,
      *             valid through this call. With 0, contents are unspecified.
-     * @param usage New usage hint; pass GetStorageBufferUsage() to keep the old one.
+     * @param usage New usage hint; pass GetStorageBufferUsage(context, buffer_id)
+     *              to keep the old one.
      * @return False for an invalid ID, missing context, invalid size, or if the
      *         engine reports a different size after replacement. True only
      *         confirms the reported size; this is not a GPU completion check or
      *         a transactional operation with a rollback guarantee.
      */
-    bool ResizeStorageBuffer(StorageBufferId buffer_id, uint32_t size, const void* data, dmGraphics::BufferUsage usage);
+    bool ResizeStorageBuffer(DRPContext* context, StorageBufferId buffer_id, uint32_t size, const void* data, dmGraphics::BufferUsage usage);
 
     /**
      * Update part of a buffer without changing its size or usage hint.
@@ -170,16 +210,16 @@ namespace dmDRP
      *         alignment/range. True means the update was forwarded to the engine,
      *         not that GPU execution has completed.
      */
-    bool UpdateStorageBuffer(StorageBufferId buffer_id, uint32_t offset, uint32_t size, const void* data);
+    bool UpdateStorageBuffer(DRPContext* context, StorageBufferId buffer_id, uint32_t offset, uint32_t size, const void* data);
 
     /** Return the logical size in bytes, or 0 for an invalid ID or missing context. */
-    uint32_t GetStorageBufferSize(StorageBufferId buffer_id);
+    uint32_t GetStorageBufferSize(DRPContext* context, StorageBufferId buffer_id);
 
     /**
      * Return the stored usage hint. Invalid IDs return BUFFER_USAGE_DYNAMIC_DRAW;
-     * use IsStorageBufferValid() if the caller needs to distinguish that fallback.
+     * use IsStorageBufferValid(context, buffer_id) to distinguish that fallback.
      */
-    dmGraphics::BufferUsage GetStorageBufferUsage(StorageBufferId buffer_id);
+    dmGraphics::BufferUsage GetStorageBufferUsage(DRPContext* context, StorageBufferId buffer_id);
 
     /**
      * Bind a live buffer to a shader's reflected descriptor set and binding.
@@ -194,14 +234,14 @@ namespace dmDRP
      *         True means the bind was forwarded, not that shader compatibility
      *         or all backend-specific restrictions were checked by this wrapper.
      */
-    bool BindStorageBuffer(StorageBufferId buffer_id, uint32_t set, uint32_t binding);
+    bool BindStorageBuffer(DRPContext* context, StorageBufferId buffer_id, uint32_t set, uint32_t binding);
 
     /**
      * Remove all descriptor bindings of a buffer without deleting its storage.
      * @return False for an invalid ID or missing context; otherwise true, even
      *         when the buffer was already unbound.
      */
-    bool UnbindStorageBuffer(StorageBufferId buffer_id);
+    bool UnbindStorageBuffer(DRPContext* context, StorageBufferId buffer_id);
 
     /**
      * Clear all bindings of a buffer, release it through the engine, and remove
@@ -210,15 +250,16 @@ namespace dmDRP
      * @return False for an invalid/deleted ID or missing context; otherwise true.
      *         On success, the ID is invalid and must not be used again.
      */
-    bool DeleteStorageBuffer(StorageBufferId buffer_id);
+    bool DeleteStorageBuffer(DRPContext* context, StorageBufferId buffer_id);
 
     /**
-     * Release all tracked buffers and invalidate their IDs. Used by the Lua
-     * reset() binding and FinalizeGraphics(); does not clear the cached context
-     * or reset the ID counter. If no context is available, only the registry is
-     * cleared, so call before context destruction to release GPU resources.
+     * Release this context's buffers and invalidate their IDs. Used by the Lua
+     * reset() binding and FinalizeGraphics(); retains the DRPContext, borrowed
+     * graphics pointer, and ID counter. If graphics is unavailable, only the
+     * records are cleared, so call before graphics destruction to release GPU
+     * resources.
      */
-    void DeleteAllStorageBuffers();
+    void DeleteAllStorageBuffers(DRPContext* context);
 }
 
 #endif // DM_DRP_H

@@ -19,7 +19,8 @@ local function release_target()
 		state.target = nil
 	end
 	state.available = false
-	state.width, state.height = 0, 0
+	state.width = 0
+	state.height = 0
 end
 
 local function finite(value, fallback)
@@ -30,18 +31,37 @@ local function finite(value, fallback)
 end
 
 local function unavailable_reason(context, width, height)
-	if not state.enabled then return "disabled by profile" end
-	if not state.render_available then return "render runtime unavailable" end
+	if not state.enabled then
+		return "disabled by profile"
+	end
+	
+	if not state.render_available then
+		return "render runtime unavailable"
+	end
+	
 	local lighting = context.profile.settings.lighting or {}
-	if lighting.cluster_debug == true then return "cluster debug bypass" end
-	if not next(state.presenters) then return "HDR presenter not loaded" end
-	if width < 1 or height < 1 then return "empty viewport" end
+	if lighting.cluster_debug == true then
+		return "cluster debug bypass"
+	end
+	
+	if not next(state.presenters) then
+		return "HDR presenter not loaded"
+	end
+	
+	if width < 1 or height < 1 then
+		return "empty viewport"
+	end
+	
 	local caps = context.capabilities or {}
 	local supported = (caps.features or {}).float_render_targets
 	if supported == false or (caps.strict and supported ~= true) then
 		return "floating-point render targets unavailable"
 	end
-	if not graphics.TEXTURE_FORMAT_RGBA16F then return "RGBA16F unavailable" end
+	
+	if not graphics.TEXTURE_FORMAT_RGBA16F then
+		return "RGBA16F unavailable"
+	end
+	
 	local limits = caps.limits or {}
 	for _, entry in ipairs({
 		{ width, limits.max_texture_size_2d }, { height, limits.max_texture_size_2d },
@@ -136,7 +156,10 @@ function M.scene_rendered()
 end
 
 function M.render()
-	if not state.available or not state.scene_rendered then return end
+	if not state.available or not state.scene_rendered then
+		return
+	end
+
 	-- This is the sole display conversion. Transparent surfaces have already
 	-- blended into the linear scene, before exposure and the nonlinear curve.
 	render.set_render_target(render.RENDER_TARGET_DEFAULT)
@@ -161,10 +184,15 @@ end
 
 function M.get_diagnostics()
 	return {
-		enabled = state.enabled, available = state.available,
-		reason = state.reason, width = state.width, height = state.height,
-		exposure = state.exposure, tone_mapper = "aces_fitted",
-		color_format = "rgba16f", color_bytes = state.width * state.height * 8,
+		enabled = state.enabled,
+		available = state.available,
+		reason = state.reason,
+		width = state.width,
+		height = state.height,
+		exposure = state.exposure,
+		tone_mapper = "aces_fitted",
+		color_format = "rgba16f",
+		color_bytes = state.width * state.height * 8,
 		presenter_loaded = next(state.presenters) ~= nil,
 	}
 end

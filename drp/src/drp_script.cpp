@@ -12,6 +12,17 @@
 
 namespace dmDRP
 {
+    // The Lua registry borrows this pointer; the extension owns its lifetime.
+    static DRPContext* CheckContext(lua_State* L)
+    {
+        lua_getfield(L, LUA_REGISTRYINDEX, LIB_NAME ".context");
+        DRPContext* context = (DRPContext*) lua_touserdata(L, -1);
+        lua_pop(L, 1);
+        if (!context)
+            luaL_error(L, "the DRP context is not available");
+        return context;
+    }
+
     static void SetBooleanField(lua_State* L, const char* name, bool value)
     {
         lua_pushboolean(L, value ? 1 : 0);
@@ -62,10 +73,10 @@ namespace dmDRP
         }
     }
 
-    static StorageBufferId CheckStorageBuffer(lua_State* L, int index)
+    static StorageBufferId CheckStorageBuffer(lua_State* L, DRPContext* context, int index)
     {
         const StorageBufferId buffer_id = CheckUint32(L, index, "storage-buffer handle", false);
-        if (!IsStorageBufferValid(buffer_id))
+        if (!IsStorageBufferValid(context, buffer_id))
             luaL_error(L, "invalid or deleted storage-buffer handle %u", buffer_id);
         return buffer_id;
     }
@@ -74,7 +85,8 @@ namespace dmDRP
     {
         DM_LUA_STACK_CHECK(L, 1);
 
-        const dmGraphics::HContext context = GetGraphicsContext();
+        DRPContext* context = CheckContext(L);
+        const dmGraphics::HContext graphics_context = GetGraphicsContext(context);
         const dmGraphics::AdapterFamily adapter = dmGraphics::GetInstalledAdapterFamily();
 
         lua_newtable(L);
@@ -83,21 +95,21 @@ namespace dmDRP
         SetNumberField(L, "native_bridge_version", NATIVE_API_VERSION);
 
         lua_newtable(L);
-        SetBooleanField(L, "compute_shaders", context && dmGraphics::IsContextFeatureSupported(context, dmGraphics::CONTEXT_FEATURE_COMPUTE_SHADER));
-        SetBooleanField(L, "storage_buffers", context && dmGraphics::IsContextFeatureSupported(context, dmGraphics::CONTEXT_FEATURE_STORAGE_BUFFER));
-        SetBooleanField(L, "texture_arrays", context && dmGraphics::IsContextFeatureSupported(context, dmGraphics::CONTEXT_FEATURE_TEXTURE_ARRAY));
-        SetBooleanField(L, "textures_3d", context && dmGraphics::IsContextFeatureSupported(context, dmGraphics::CONTEXT_FEATURE_3D_TEXTURES));
-        SetBooleanField(L, "instancing", context && dmGraphics::IsContextFeatureSupported(context, dmGraphics::CONTEXT_FEATURE_INSTANCING));
-        SetBooleanField(L, "multiple_render_targets", context && dmGraphics::IsContextFeatureSupported(context, dmGraphics::CONTEXT_FEATURE_MULTI_TARGET_RENDERING));
-        SetBooleanField(L, "blend_equation_min_max", context && dmGraphics::IsContextFeatureSupported(context, dmGraphics::CONTEXT_FEATURE_BLEND_EQUATION_MIN_MAX));
+        SetBooleanField(L, "compute_shaders", graphics_context && dmGraphics::IsContextFeatureSupported(graphics_context, dmGraphics::CONTEXT_FEATURE_COMPUTE_SHADER));
+        SetBooleanField(L, "storage_buffers", graphics_context && dmGraphics::IsContextFeatureSupported(graphics_context, dmGraphics::CONTEXT_FEATURE_STORAGE_BUFFER));
+        SetBooleanField(L, "texture_arrays", graphics_context && dmGraphics::IsContextFeatureSupported(graphics_context, dmGraphics::CONTEXT_FEATURE_TEXTURE_ARRAY));
+        SetBooleanField(L, "textures_3d", graphics_context && dmGraphics::IsContextFeatureSupported(graphics_context, dmGraphics::CONTEXT_FEATURE_3D_TEXTURES));
+        SetBooleanField(L, "instancing", graphics_context && dmGraphics::IsContextFeatureSupported(graphics_context, dmGraphics::CONTEXT_FEATURE_INSTANCING));
+        SetBooleanField(L, "multiple_render_targets", graphics_context && dmGraphics::IsContextFeatureSupported(graphics_context, dmGraphics::CONTEXT_FEATURE_MULTI_TARGET_RENDERING));
+        SetBooleanField(L, "blend_equation_min_max", graphics_context && dmGraphics::IsContextFeatureSupported(graphics_context, dmGraphics::CONTEXT_FEATURE_BLEND_EQUATION_MIN_MAX));
         lua_setfield(L, -2, "features");
 
         lua_newtable(L);
-        if (context)
+        if (graphics_context)
         {
             dmGraphics::GraphicsContextLimits limits;
             memset(&limits, 0, sizeof(limits));
-            dmGraphics::GetGraphicsContextLimits(context, limits);
+            dmGraphics::GetGraphicsContextLimits(graphics_context, limits);
             SetNumberField(L, "max_uniform_buffer_range", (lua_Number) limits.m_MaxUniformBufferRange);
             SetNumberField(L, "max_storage_buffer_range", (lua_Number) limits.m_MaxStorageBufferRange);
             SetNumberField(L, "max_texture_size_2d", limits.m_MaxTextureSize2D);
@@ -126,10 +138,10 @@ namespace dmDRP
     {
         DM_LUA_STACK_CHECK(L, 1);
 
-        dmGraphics::HContext context = GetGraphicsContext();
-        if (!context)
+        DRPContext* context = CheckContext(L);
+        if (!GetGraphicsContext(context))
             return luaL_error(L, "the graphics context is not available");
-        if (!IsStorageBufferSupported())
+        if (!IsStorageBufferSupported(context))
             return luaL_error(L, "storage buffers are not supported by the '%s' graphics adapter", GetGraphicsAdapterName(dmGraphics::GetInstalledAdapterFamily()));
 
         const uint32_t size = CheckUint32(L, 1, "storage-buffer size", false);
@@ -146,7 +158,7 @@ namespace dmDRP
                 return luaL_error(L, "initial data must contain exactly %u bytes (got %u)", size, (uint32_t) data_size);
         }
 
-        const StorageBufferId buffer = dmDRP::CreateStorageBuffer(size, data, usage);
+        const StorageBufferId buffer = dmDRP::CreateStorageBuffer(context, size, data, usage);
         if (!buffer)
             return luaL_error(L, "failed to create a %u-byte storage buffer", size);
 
@@ -158,12 +170,13 @@ namespace dmDRP
     {
         DM_LUA_STACK_CHECK(L, 1);
 
-        const StorageBufferId buffer = CheckStorageBuffer(L, 1);
+        DRPContext* context = CheckContext(L);
+        const StorageBufferId buffer = CheckStorageBuffer(L, context, 1);
         const uint32_t size = CheckUint32(L, 2, "storage-buffer size", false);
         if ((size & 3) != 0)
             return luaL_error(L, "storage-buffer size must be four-byte aligned");
 
-        const dmGraphics::BufferUsage usage = lua_isnoneornil(L, 3) ? GetStorageBufferUsage(buffer) : CheckBufferUsage(L, 3);
+        const dmGraphics::BufferUsage usage = lua_isnoneornil(L, 3) ? GetStorageBufferUsage(context, buffer) : CheckBufferUsage(L, 3);
         const void* data = 0;
         if (!lua_isnoneornil(L, 4))
         {
@@ -173,7 +186,7 @@ namespace dmDRP
                 return luaL_error(L, "replacement data must contain exactly %u bytes (got %u)", size, (uint32_t) data_size);
         }
 
-        if (!dmDRP::ResizeStorageBuffer(buffer, size, data, usage))
+        if (!dmDRP::ResizeStorageBuffer(context, buffer, size, data, usage))
             return luaL_error(L, "failed to resize storage buffer to %u bytes", size);
 
         lua_pushboolean(L, 1);
@@ -184,7 +197,8 @@ namespace dmDRP
     {
         DM_LUA_STACK_CHECK(L, 1);
 
-        const StorageBufferId buffer = CheckStorageBuffer(L, 1);
+        DRPContext* context = CheckContext(L);
+        const StorageBufferId buffer = CheckStorageBuffer(L, context, 1);
         const uint32_t offset = CheckUint32(L, 2, "storage-buffer update offset", true);
         size_t data_size = 0;
         const void* data = luaL_checklstring(L, 3, &data_size);
@@ -194,11 +208,11 @@ namespace dmDRP
         if (((offset | (uint32_t) data_size) & 3) != 0)
             return luaL_error(L, "storage-buffer update offset and data size must be four-byte aligned");
 
-        const uint32_t buffer_size = dmDRP::GetStorageBufferSize(buffer);
+        const uint32_t buffer_size = dmDRP::GetStorageBufferSize(context, buffer);
         if (offset > buffer_size || data_size > buffer_size - offset)
             return luaL_error(L, "storage-buffer update range exceeds the %u-byte buffer", buffer_size);
 
-        if (!dmDRP::UpdateStorageBuffer(buffer, offset, (uint32_t) data_size, data))
+        if (!dmDRP::UpdateStorageBuffer(context, buffer, offset, (uint32_t) data_size, data))
             return luaL_error(L, "failed to update storage buffer");
         lua_pushboolean(L, 1);
         return 1;
@@ -207,8 +221,9 @@ namespace dmDRP
     static int GetStorageBufferSize(lua_State* L)
     {
         DM_LUA_STACK_CHECK(L, 1);
-        const StorageBufferId buffer = CheckStorageBuffer(L, 1);
-        lua_pushnumber(L, dmDRP::GetStorageBufferSize(buffer));
+        DRPContext* context = CheckContext(L);
+        const StorageBufferId buffer = CheckStorageBuffer(L, context, 1);
+        lua_pushnumber(L, dmDRP::GetStorageBufferSize(context, buffer));
         return 1;
     }
 
@@ -216,7 +231,8 @@ namespace dmDRP
     {
         DM_LUA_STACK_CHECK(L, 1);
 
-        const StorageBufferId buffer = CheckStorageBuffer(L, 1);
+        DRPContext* context = CheckContext(L);
+        const StorageBufferId buffer = CheckStorageBuffer(L, context, 1);
         const uint32_t set = CheckUint32(L, 2, "descriptor set", true);
         const uint32_t binding = CheckUint32(L, 3, "descriptor binding", true);
         if (set >= MAX_DESCRIPTOR_SETS)
@@ -224,7 +240,7 @@ namespace dmDRP
         if (binding >= MAX_BINDINGS_PER_SET)
             return luaL_error(L, "descriptor binding must be less than %u", MAX_BINDINGS_PER_SET);
 
-        if (!dmDRP::BindStorageBuffer(buffer, set, binding))
+        if (!dmDRP::BindStorageBuffer(context, buffer, set, binding))
             return luaL_error(L, "failed to bind storage buffer");
         lua_pushboolean(L, 1);
         return 1;
@@ -233,8 +249,9 @@ namespace dmDRP
     static int UnbindStorageBuffer(lua_State* L)
     {
         DM_LUA_STACK_CHECK(L, 1);
-        const StorageBufferId buffer = CheckStorageBuffer(L, 1);
-        if (!dmDRP::UnbindStorageBuffer(buffer))
+        DRPContext* context = CheckContext(L);
+        const StorageBufferId buffer = CheckStorageBuffer(L, context, 1);
+        if (!dmDRP::UnbindStorageBuffer(context, buffer))
             return luaL_error(L, "failed to unbind storage buffer");
         lua_pushboolean(L, 1);
         return 1;
@@ -244,8 +261,9 @@ namespace dmDRP
     {
         DM_LUA_STACK_CHECK(L, 1);
 
-        const StorageBufferId buffer = CheckStorageBuffer(L, 1);
-        if (!dmDRP::DeleteStorageBuffer(buffer))
+        DRPContext* context = CheckContext(L);
+        const StorageBufferId buffer = CheckStorageBuffer(L, context, 1);
+        if (!dmDRP::DeleteStorageBuffer(context, buffer))
             return luaL_error(L, "failed to delete storage buffer");
         lua_pushboolean(L, 1);
         return 1;
@@ -254,7 +272,8 @@ namespace dmDRP
     static int Reset(lua_State* L)
     {
         DM_LUA_STACK_CHECK(L, 1);
-        DeleteAllStorageBuffers();
+        DRPContext* context = CheckContext(L);
+        DeleteAllStorageBuffers(context);
         lua_pushboolean(L, 1);
         return 1;
     }
@@ -279,9 +298,11 @@ namespace dmDRP
         lua_setfield(L, -2, name);
     }
 
-    void InitializeScript(lua_State* L)
+    void InitializeScript(lua_State* L, DRPContext* context)
     {
         DM_LUA_STACK_CHECK(L, 0);
+        lua_pushlightuserdata(L, context);
+        lua_setfield(L, LUA_REGISTRYINDEX, LIB_NAME ".context");
         luaL_register(L, LIB_NAME, ModuleMethods);
         RegisterNumberConstant(L, "API_VERSION", NATIVE_API_VERSION);
         RegisterNumberConstant(L, "BUFFER_USAGE_STREAM_DRAW", dmGraphics::BUFFER_USAGE_STREAM_DRAW);
@@ -290,5 +311,12 @@ namespace dmDRP
         RegisterNumberConstant(L, "MAX_DESCRIPTOR_SETS", MAX_DESCRIPTOR_SETS);
         RegisterNumberConstant(L, "MAX_BINDINGS_PER_SET", MAX_BINDINGS_PER_SET);
         lua_pop(L, 1);
+    }
+
+    void FinalizeScript(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+        lua_pushnil(L);
+        lua_setfield(L, LUA_REGISTRYINDEX, LIB_NAME ".context");
     }
 }

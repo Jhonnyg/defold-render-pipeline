@@ -3,63 +3,53 @@
 
 #include "drp.h"
 
-#include <dmsdk/dlib/array.h>
-
 namespace dmDRP
 {
-    struct StorageBufferRecord
+    static StorageBufferRecord* FindStorageBuffer(DRPContext* drp_context, StorageBufferId buffer_id, uint32_t* index_out)
     {
-        StorageBufferId             m_Id;
-        dmGraphics::HStorageBuffer  m_Buffer;
-        dmGraphics::BufferUsage     m_Usage;
-    };
-
-    static dmGraphics::HContext         g_GraphicsContext = 0;
-    static dmArray<StorageBufferRecord> g_StorageBuffers;
-    static StorageBufferId              g_NextStorageBufferId = 1;
-
-    static StorageBufferRecord* FindStorageBuffer(StorageBufferId buffer_id, uint32_t* index_out)
-    {
-        for (uint32_t i = 0; i < g_StorageBuffers.Size(); ++i)
+        if (!drp_context)
+            return 0;
+        for (uint32_t i = 0; i < drp_context->m_StorageBuffers.Size(); ++i)
         {
-            if (g_StorageBuffers[i].m_Id == buffer_id)
+            if (drp_context->m_StorageBuffers[i].m_Id == buffer_id)
             {
                 if (index_out)
                     *index_out = i;
-                return &g_StorageBuffers[i];
+                return &drp_context->m_StorageBuffers[i];
             }
         }
         return 0;
     }
 
-    static StorageBufferId AllocateStorageBufferId()
+    static StorageBufferId AllocateStorageBufferId(DRPContext* drp_context)
     {
-        StorageBufferId buffer_id = g_NextStorageBufferId++;
+        StorageBufferId buffer_id = drp_context->m_NextStorageBufferId++;
         if (buffer_id == 0)
         {
-            buffer_id = g_NextStorageBufferId++;
-            while (FindStorageBuffer(buffer_id, 0))
-                buffer_id = g_NextStorageBufferId++;
+            buffer_id = drp_context->m_NextStorageBufferId++;
+            while (FindStorageBuffer(drp_context, buffer_id, 0))
+                buffer_id = drp_context->m_NextStorageBufferId++;
         }
         return buffer_id;
     }
 
-    void InitializeGraphics(dmGraphics::HContext context)
+    void InitializeGraphics(DRPContext* drp_context, dmGraphics::HContext graphics_context)
     {
-        g_GraphicsContext = context;
+        if (drp_context)
+            drp_context->m_GraphicsContext = graphics_context;
     }
 
-    void FinalizeGraphics()
+    void FinalizeGraphics(DRPContext* drp_context)
     {
-        DeleteAllStorageBuffers();
-        g_GraphicsContext = 0;
+        if (!drp_context)
+            return;
+        DeleteAllStorageBuffers(drp_context);
+        drp_context->m_GraphicsContext = 0;
     }
 
-    dmGraphics::HContext GetGraphicsContext()
+    dmGraphics::HContext GetGraphicsContext(DRPContext* drp_context)
     {
-        if (!g_GraphicsContext)
-            g_GraphicsContext = dmGraphics::GetInstalledContext();
-        return g_GraphicsContext;
+        return drp_context ? drp_context->m_GraphicsContext : 0;
     }
 
     const char* GetGraphicsAdapterName(dmGraphics::AdapterFamily family)
@@ -79,42 +69,42 @@ namespace dmDRP
         }
     }
 
-    bool IsStorageBufferSupported()
+    bool IsStorageBufferSupported(DRPContext* drp_context)
     {
-        dmGraphics::HContext context = GetGraphicsContext();
+        dmGraphics::HContext context = GetGraphicsContext(drp_context);
         return context && dmGraphics::IsContextFeatureSupported(context, dmGraphics::CONTEXT_FEATURE_STORAGE_BUFFER);
     }
 
-    bool IsStorageBufferValid(StorageBufferId buffer_id)
+    bool IsStorageBufferValid(DRPContext* drp_context, StorageBufferId buffer_id)
     {
-        return buffer_id != 0 && FindStorageBuffer(buffer_id, 0) != 0;
+        return buffer_id != 0 && FindStorageBuffer(drp_context, buffer_id, 0) != 0;
     }
 
-    StorageBufferId CreateStorageBuffer(uint32_t size, const void* data, dmGraphics::BufferUsage usage)
+    StorageBufferId CreateStorageBuffer(DRPContext* drp_context, uint32_t size, const void* data, dmGraphics::BufferUsage usage)
     {
-        dmGraphics::HContext context = GetGraphicsContext();
-        if (!context || !IsStorageBufferSupported() || size == 0 || (size & 3) != 0)
+        dmGraphics::HContext context = GetGraphicsContext(drp_context);
+        if (!context || !IsStorageBufferSupported(drp_context) || size == 0 || (size & 3) != 0)
             return 0;
 
         dmGraphics::HStorageBuffer buffer = dmGraphics::NewStorageBuffer(context, size, data, usage);
         if (!buffer)
             return 0;
 
-        if (g_StorageBuffers.Full())
-            g_StorageBuffers.OffsetCapacity(g_StorageBuffers.Capacity() == 0 ? 8 : g_StorageBuffers.Capacity());
+        if (drp_context->m_StorageBuffers.Full())
+            drp_context->m_StorageBuffers.OffsetCapacity(drp_context->m_StorageBuffers.Capacity() == 0 ? 8 : drp_context->m_StorageBuffers.Capacity());
 
         StorageBufferRecord record;
-        record.m_Id = AllocateStorageBufferId();
+        record.m_Id = AllocateStorageBufferId(drp_context);
         record.m_Buffer = buffer;
         record.m_Usage = usage;
-        g_StorageBuffers.Push(record);
+        drp_context->m_StorageBuffers.Push(record);
         return record.m_Id;
     }
 
-    bool ResizeStorageBuffer(StorageBufferId buffer_id, uint32_t size, const void* data, dmGraphics::BufferUsage usage)
+    bool ResizeStorageBuffer(DRPContext* drp_context, StorageBufferId buffer_id, uint32_t size, const void* data, dmGraphics::BufferUsage usage)
     {
-        StorageBufferRecord* record = FindStorageBuffer(buffer_id, 0);
-        dmGraphics::HContext context = GetGraphicsContext();
+        StorageBufferRecord* record = FindStorageBuffer(drp_context, buffer_id, 0);
+        dmGraphics::HContext context = GetGraphicsContext(drp_context);
         if (!record || !context || size == 0 || (size & 3) != 0)
             return false;
 
@@ -126,10 +116,10 @@ namespace dmDRP
         return true;
     }
 
-    bool UpdateStorageBuffer(StorageBufferId buffer_id, uint32_t offset, uint32_t size, const void* data)
+    bool UpdateStorageBuffer(DRPContext* drp_context, StorageBufferId buffer_id, uint32_t offset, uint32_t size, const void* data)
     {
-        StorageBufferRecord* record = FindStorageBuffer(buffer_id, 0);
-        dmGraphics::HContext context = GetGraphicsContext();
+        StorageBufferRecord* record = FindStorageBuffer(drp_context, buffer_id, 0);
+        dmGraphics::HContext context = GetGraphicsContext(drp_context);
         if (!record || !context || !data || size == 0 || ((offset | size) & 3) != 0)
             return false;
 
@@ -141,25 +131,25 @@ namespace dmDRP
         return true;
     }
 
-    uint32_t GetStorageBufferSize(StorageBufferId buffer_id)
+    uint32_t GetStorageBufferSize(DRPContext* drp_context, StorageBufferId buffer_id)
     {
-        StorageBufferRecord* record = FindStorageBuffer(buffer_id, 0);
-        dmGraphics::HContext context = GetGraphicsContext();
+        StorageBufferRecord* record = FindStorageBuffer(drp_context, buffer_id, 0);
+        dmGraphics::HContext context = GetGraphicsContext(drp_context);
         if (!record || !context)
             return 0;
         return dmGraphics::GetStorageBufferSize(context, record->m_Buffer);
     }
 
-    dmGraphics::BufferUsage GetStorageBufferUsage(StorageBufferId buffer_id)
+    dmGraphics::BufferUsage GetStorageBufferUsage(DRPContext* drp_context, StorageBufferId buffer_id)
     {
-        StorageBufferRecord* record = FindStorageBuffer(buffer_id, 0);
+        StorageBufferRecord* record = FindStorageBuffer(drp_context, buffer_id, 0);
         return record ? record->m_Usage : dmGraphics::BUFFER_USAGE_DYNAMIC_DRAW;
     }
 
-    bool BindStorageBuffer(StorageBufferId buffer_id, uint32_t set, uint32_t binding)
+    bool BindStorageBuffer(DRPContext* drp_context, StorageBufferId buffer_id, uint32_t set, uint32_t binding)
     {
-        StorageBufferRecord* record = FindStorageBuffer(buffer_id, 0);
-        dmGraphics::HContext context = GetGraphicsContext();
+        StorageBufferRecord* record = FindStorageBuffer(drp_context, buffer_id, 0);
+        dmGraphics::HContext context = GetGraphicsContext(drp_context);
         if (!record || !context || set >= MAX_DESCRIPTOR_SETS || binding >= MAX_BINDINGS_PER_SET)
             return false;
 
@@ -167,10 +157,10 @@ namespace dmDRP
         return true;
     }
 
-    bool UnbindStorageBuffer(StorageBufferId buffer_id)
+    bool UnbindStorageBuffer(DRPContext* drp_context, StorageBufferId buffer_id)
     {
-        StorageBufferRecord* record = FindStorageBuffer(buffer_id, 0);
-        dmGraphics::HContext context = GetGraphicsContext();
+        StorageBufferRecord* record = FindStorageBuffer(drp_context, buffer_id, 0);
+        dmGraphics::HContext context = GetGraphicsContext(drp_context);
         if (!record || !context)
             return false;
 
@@ -178,27 +168,29 @@ namespace dmDRP
         return true;
     }
 
-    bool DeleteStorageBuffer(StorageBufferId buffer_id)
+    bool DeleteStorageBuffer(DRPContext* drp_context, StorageBufferId buffer_id)
     {
         uint32_t record_index = 0;
-        StorageBufferRecord* record = FindStorageBuffer(buffer_id, &record_index);
-        dmGraphics::HContext context = GetGraphicsContext();
+        StorageBufferRecord* record = FindStorageBuffer(drp_context, buffer_id, &record_index);
+        dmGraphics::HContext context = GetGraphicsContext(drp_context);
         if (!record || !context)
             return false;
 
         dmGraphics::DeleteStorageBuffer(context, record->m_Buffer);
-        g_StorageBuffers.EraseSwap(record_index);
+        drp_context->m_StorageBuffers.EraseSwap(record_index);
         return true;
     }
 
-    void DeleteAllStorageBuffers()
+    void DeleteAllStorageBuffers(DRPContext* drp_context)
     {
-        dmGraphics::HContext context = GetGraphicsContext();
+        if (!drp_context)
+            return;
+        dmGraphics::HContext context = GetGraphicsContext(drp_context);
         if (context)
         {
-            for (uint32_t i = 0; i < g_StorageBuffers.Size(); ++i)
-                dmGraphics::DeleteStorageBuffer(context, g_StorageBuffers[i].m_Buffer);
+            for (uint32_t i = 0; i < drp_context->m_StorageBuffers.Size(); ++i)
+                dmGraphics::DeleteStorageBuffer(context, drp_context->m_StorageBuffers[i].m_Buffer);
         }
-        g_StorageBuffers.SetSize(0);
+        drp_context->m_StorageBuffers.SetSize(0);
     }
 }
