@@ -12,6 +12,33 @@ per-cluster light lists are extension-owned SSBOs. Punctual light data remains
 in Defold's engine-owned `LightBuffer` UBO and is consumed directly by both the
 assignment compute shader and clustered PBR materials.
 
+## Library packaging
+
+The reusable library lives in `drp/`. Its `ext.manifest` and `src/` directory
+provide the native extension alongside the Lua modules, render resources,
+materials, shaders, and features. The repository's `game.project` exports this
+single directory. The top-level files are the public Lua API (`drp.lua`), the
+render script, the clustered and compatibility `.render` entry points, and the
+extension manifest. Supporting Lua modules live in `drp/internal/`; applications
+continue to use `require("drp.drp")`.
+
+The library export setting is:
+
+```ini
+[library]
+include_dirs = drp
+```
+
+Examples, tests, and development tools stay outside the library. Existing
+`require("drp.drp")` imports and `/drp/` resource paths also work when DRP is
+loaded as a project dependency.
+
+Consuming projects must also add the
+[asset-pbr 0.1.0 dependency](https://github.com/defold/asset-pbr/archive/refs/tags/0.1.0.zip)
+and apply the [project configuration](#project-configuration) below. Defold does
+not inherit a library's dependencies or project settings. Vantage is only
+needed for this repository's examples.
+
 ## Current API
 
 ```lua

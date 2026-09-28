@@ -1,5 +1,5 @@
-local utils = require("drp.utils")
-local native = require("drp.native")
+local utils = require("drp.internal.utils")
+local native = require("drp.internal.native")
 
 local M = {}
 

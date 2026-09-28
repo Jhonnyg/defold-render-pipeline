@@ -69,7 +69,7 @@ function M.run()
 		reset = function() assert(next(buffers) == nil, "feature leaked buffers"); return true end,
 	}
 
-	local pipeline = require("drp.pipeline")
+	local pipeline = require("drp.internal.pipeline")
 	local function frame()
 		calls = {}
 		local _, err = pipeline.begin_frame(1 / 60, width, height)

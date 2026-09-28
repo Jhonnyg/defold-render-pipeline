@@ -1,4 +1,4 @@
-// Copyright 2026 The Defold Render Pipeline Authors
+// Copyright 2026 Jhonny Göransson
 // Licensed under the MIT License.
 
 #include <dmsdk/sdk.h>

@@ -1,5 +1,5 @@
-local pipeline = require("drp.pipeline")
-local quality = require("drp.quality")
+local pipeline = require("drp.internal.pipeline")
+local quality = require("drp.internal.quality")
 
 ---@class drp.CapabilityRecord
 ---@field platform string Normalized platform name, such as `macos`, `windows`, or `html5`.

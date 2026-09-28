@@ -6,6 +6,8 @@ The public entry point is:
 local drp = require("drp.drp")
 ```
 
+Modules under `drp/internal/` are implementation details, not public API.
+
 ## Lifecycle
 
 ### `drp.initialize(options)`

@@ -1,4 +1,4 @@
-local resources = require("drp.resources")
+local resources = require("drp.internal.resources")
 
 local M = { name = "hdr" }
 

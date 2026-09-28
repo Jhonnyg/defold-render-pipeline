@@ -18,8 +18,9 @@ Sponza examples already include it. This supplies the mesh required by
 `render.draw()`; its script registers its lifetime with the renderer. Without
 it, DRP renders directly in LDR rather than leaving an undisplayed HDR target.
 
-If using a custom render script, forward its `on_message` calls to
-`drp.pipeline.on_message(message_id, message, sender)` as the bundled script does.
+If using a custom render script, load `drp.internal.pipeline` and forward its
+`on_message` calls to `pipeline.on_message(message_id, message, sender)` as the
+bundled script does.
 
 `balanced`, `high`, and `ultra` enable HDR. `compatibility` defaults to LDR but
 can opt into HDR on devices that support it. Settings also work through custom

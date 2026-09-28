@@ -1,5 +1,5 @@
-local native = require("drp.native")
-local resources = require("drp.resources")
+local native = require("drp.internal.native")
+local resources = require("drp.internal.resources")
 local hdr = require("drp.features.hdr.hdr")
 local config = require("drp.features.clustered.config")
 local requirements = require("drp.features.clustered.requirements")

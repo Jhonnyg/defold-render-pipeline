@@ -1,7 +1,7 @@
-local capabilities = require("drp.capabilities")
-local pipeline = require("drp.pipeline")
-local quality = require("drp.quality")
-local utils = require("drp.utils")
+local capabilities = require("drp.internal.capabilities")
+local pipeline = require("drp.internal.pipeline")
+local quality = require("drp.internal.quality")
+local utils = require("drp.internal.utils")
 
 local M = {}
 

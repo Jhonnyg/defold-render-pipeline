@@ -1,9 +1,9 @@
-local capabilities = require("drp.capabilities")
-local features = require("drp.features")
-local native = require("drp.native")
-local quality = require("drp.quality")
-local resources = require("drp.resources")
-local utils = require("drp.utils")
+local capabilities = require("drp.internal.capabilities")
+local features = require("drp.internal.features")
+local native = require("drp.internal.native")
+local quality = require("drp.internal.quality")
+local resources = require("drp.internal.resources")
+local utils = require("drp.internal.utils")
 
 local M = {}
 

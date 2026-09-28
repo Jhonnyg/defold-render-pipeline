@@ -1,7 +1,7 @@
 # Render Features
 
 Render features are internal DRP modules listed explicitly in
-`drp/features.lua`:
+`drp/internal/features.lua`:
 
 ```lua
 local feature_modules = {

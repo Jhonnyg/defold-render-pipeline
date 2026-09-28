@@ -1,4 +1,4 @@
-local pipeline = require("drp.pipeline")
+local pipeline = require("drp.internal.pipeline")
 
 function init(self)
 	local state, err = pipeline.initialize()
