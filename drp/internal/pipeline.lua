@@ -291,6 +291,18 @@ function M.set_quality(name)
 	return queue_requested_profile(name)
 end
 
+local function queue_runtime_overrides(overrides)
+	-- Resolve before committing either the overrides or the pending profile.
+	-- Preserve a quality request made earlier in the same frame.
+	local resolution, err = quality.resolve(M.get_requested_quality(), state.capabilities, overrides)
+	if not resolution then
+		return nil, err
+	end
+	state.runtime_overrides = overrides
+	state.pending = resolution
+	return snapshot_resolution(resolution)
+end
+
 function M.set_runtime_overrides(overrides)
 	if type(overrides) ~= "table" then
 		return nil, "runtime overrides must be a table"
@@ -298,17 +310,46 @@ function M.set_runtime_overrides(overrides)
 	if not state.initialized then
 		return nil, "DRP must be initialized before runtime overrides can be changed"
 	end
-	local previous = state.runtime_overrides
-	state.runtime_overrides = utils.copy(overrides)
-	local resolution, err = queue_requested_profile(state.active.requested)
-	if not resolution then
-		state.runtime_overrides = previous
-	end
-	return resolution, err
+	return queue_runtime_overrides(utils.merge(utils.copy(state.runtime_overrides), overrides))
 end
 
-function M.clear_runtime_overrides()
-	return M.set_runtime_overrides({})
+function M.clear_runtime_overrides(path)
+	if path ~= nil and (type(path) ~= "string" or path == "" or path:find("%s")
+		or path:find("^%.") or path:find("%.$") or path:find("%.%.")) then
+		return nil, "override path must be nil or non-empty dot-separated field names"
+	end
+	if not state.initialized then
+		return nil, "DRP must be initialized before runtime overrides can be changed"
+	end
+	if path == nil then
+		return queue_runtime_overrides({})
+	end
+
+	local overrides = utils.copy(state.runtime_overrides)
+	local keys, parents = {}, {}
+	for key in path:gmatch("[^.]+") do
+		keys[#keys + 1] = key
+	end
+	local node = overrides
+	for index = 1, #keys - 1 do
+		local key = keys[index]
+		if type(node[key]) ~= "table" then
+			return queue_runtime_overrides(overrides)
+		end
+		parents[#parents + 1] = { node = node, key = key }
+		node = node[key]
+	end
+	if node[keys[#keys]] ~= nil then
+		node[keys[#keys]] = nil
+		-- Empty override maps must not mask a scalar default in the profile.
+		for index = #parents, 1, -1 do
+			if next(node) ~= nil then break end
+			local parent = parents[index]
+			parent.node[parent.key] = nil
+			node = parent.node
+		end
+	end
+	return queue_runtime_overrides(overrides)
 end
 
 function M.on_quality_changed(callback)

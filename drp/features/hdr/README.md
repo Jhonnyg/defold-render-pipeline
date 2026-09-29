@@ -39,8 +39,10 @@ assert(drp.set_runtime_overrides({
 Changes activate at the next frame boundary. Exposure defaults to 0 EV and is
 clamped to [-16, 16]; invalid/non-finite values use 0. Exposure-only changes do
 not reallocate targets. Setting `hdr = false` restores the original material
-output conversion and releases the HDR target. Runtime overrides replace the
-previous override table, so include any other overrides you want to retain.
+output conversion and releases the HDR target. Runtime overrides merge into
+existing overrides, so changing exposure preserves unrelated settings. Use
+`drp.clear_runtime_overrides("rendering.hdr_exposure")` to inherit the profile's
+exposure again, or pass `nil` (or no argument) to clear all overrides.
 
 ## Integration and fallback
 

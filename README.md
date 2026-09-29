@@ -146,4 +146,16 @@ scope; its remaining validation and pre-PR work is tracked in the
 [clustered feature README](drp/features/clustered/README.md). Regression checks
 and their commands are documented in [tests/README.md](tests/README.md).
 
+## Future improvements / work
+
+- **Shared scene/project shader data:** Provide a common shader include and a
+  shared uniform buffer for values such as exposure, fog, global tint, and
+  future shadow settings. Populate it from effective profile settings and
+  accumulated runtime overrides after capability checks, so shaders receive
+  the actual rendering state for that frame. Keep camera and per-pass data
+  separate. Automatic binding for any shader declaring the block, similar to
+  `LightBuffer`, would benefit from generic named global uniform-buffer support
+  in Defold. DRP could initially supply the same data through render constants
+  on each draw or compute dispatch. This is planned work, not an existing API.
+
 ---

@@ -237,10 +237,12 @@ function M.get_profile_names()
 	return quality.get_names()
 end
 
----Replaces the complete runtime settings-override table.
+---Merges supplied fields into the current runtime settings overrides.
 ---
----Overrides are recursively merged onto the effective profile without mutating
----the registered definition. The new resolution activates next frame.
+---Nested maps merge recursively; arrays and scalar values replace their fields.
+---Omitted fields retain their overrides, and false is an explicit value.
+---Overrides are copied and applied over the profile without mutating its
+---definition. The new resolution activates next frame.
 ---@param overrides table Settings keyed like `profile.settings`.
 ---@return drp.QualityResolution|nil resolution Queued resolution.
 ---@return string|nil error Error message when DRP is uninitialized or the value is invalid.
@@ -248,13 +250,17 @@ function M.set_runtime_overrides(overrides)
 	return pipeline.set_runtime_overrides(overrides)
 end
 
----Clears all runtime settings overrides.
+---Clears all runtime settings overrides, or a field/subtree at a dotted path.
 ---
----The unmodified requested profile is re-resolved and activates next frame.
+---Omitting the path or passing nil clears everything. A string such as
+---"rendering.hdr_exposure" restores that field's profile value; "rendering"
+---clears the whole subtree. Missing paths leave overrides unchanged. Arrays
+---are cleared as whole fields. The new resolution activates next frame.
+---@param path string|nil Dot-separated field names without empty segments or whitespace.
 ---@return drp.QualityResolution|nil resolution Queued resolution.
----@return string|nil error Error message when DRP is uninitialized.
-function M.clear_runtime_overrides()
-	return pipeline.clear_runtime_overrides()
+---@return string|nil error Error message when DRP is uninitialized, the path is invalid, or resolution fails.
+function M.clear_runtime_overrides(path)
+	return pipeline.clear_runtime_overrides(path)
 end
 
 ---Registers a callback for committed quality transitions.
