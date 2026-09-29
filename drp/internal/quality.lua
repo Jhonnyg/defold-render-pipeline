@@ -1,5 +1,5 @@
-local capabilities = require("drp.capabilities")
-local utils = require("drp.utils")
+local capabilities = require("drp.internal.capabilities")
+local utils = require("drp.internal.utils")
 local clustered_requirements = require("drp.features.clustered.requirements")
 
 local M = {}

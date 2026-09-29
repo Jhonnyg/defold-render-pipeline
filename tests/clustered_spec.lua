@@ -2,7 +2,7 @@ local M = {}
 
 function M.run()
 	local saved = {}
-	for _, name in ipairs({ "sys", "graphics", "vmath", "render", "camera", "drp_native" }) do
+	for _, name in ipairs({ "sys", "graphics", "vmath", "render", "camera", "drp_native", "hash" }) do
 		saved[name] = rawget(_G, name)
 	end
 	local width, height = 960, 640
@@ -32,7 +32,7 @@ function M.run()
 	_G.vmath = {
 		vector4 = function(x, y, z, w) return { x = x, y = y, z = z, w = w } end,
 		matrix4 = function(value)
-			local copy = {}; for key, item in pairs(value) do copy[key] = item end; return copy
+			local copy = {}; for key, item in pairs(value or {}) do copy[key] = item end; return copy
 		end,
 		inv = function(value) return value end,
 	}
@@ -69,7 +69,7 @@ function M.run()
 		reset = function() assert(next(buffers) == nil, "feature leaked buffers"); return true end,
 	}
 
-	local pipeline = require("drp.pipeline")
+	local pipeline = require("drp.internal.pipeline")
 	local function frame()
 		calls = {}
 		local _, err = pipeline.begin_frame(1 / 60, width, height)
@@ -176,7 +176,39 @@ function M.run()
 	assert(#calls == 0)
 	pipeline.finalize()
 
-	for _, name in ipairs({ "sys", "graphics", "vmath", "render", "camera", "drp_native" }) do
+	-- Integrate the scene feature and HDR resolve through the real dispatcher.
+	build_resources = "1"
+	_G.hash = function(value) return value end
+	local target_alive, scene_draws, resolves = false, {}, 0
+	render.render_target = function() assert(not target_alive); target_alive = true; return "hdr-target" end
+	render.delete_render_target = function() assert(target_alive); target_alive = false end
+	render.draw = function(predicate, options)
+		if predicate == "drp_hdr_tonemap" then
+			assert(target_alive and #scene_draws > 0)
+			for _, draw in ipairs(scene_draws) do assert(draw.linear == 1) end
+			resolves = resolves + 1
+		elseif predicate == "model" or predicate:match("^drp_cluster_") then
+			scene_draws[#scene_draws + 1] = { predicate = predicate, linear = options.constants.drp_output_settings.x }
+		end
+	end
+	assert(pipeline.initialize({ quality = "balanced", capabilities = { features = { float_render_targets = true } } }))
+	pipeline.on_message("drp_hdr_presenter", { loaded = true }, "hdr-test")
+	frame()
+	assert(target_alive and resolves == 1)
+	assert(pipeline.get_feature_diagnostics("hdr").available)
+	assert(pipeline.set_runtime_overrides({ rendering = { hdr = false } }))
+	scene_draws = {}; frame()
+	assert(not target_alive and resolves == 1)
+	for _, draw in ipairs(scene_draws) do assert(draw.linear == 0) end
+	assert(pipeline.set_runtime_overrides({ rendering = { hdr = true } }))
+	assert(pipeline.set_quality("compatibility"))
+	scene_draws = {}; frame()
+	assert(target_alive and resolves == 2, "HDR must also work with forward material overrides")
+	pipeline.on_message("drp_hdr_presenter", { loaded = false }, "hdr-test")
+	pipeline.finalize()
+	assert(not target_alive)
+
+	for _, name in ipairs({ "sys", "graphics", "vmath", "render", "camera", "drp_native", "hash" }) do
 		_G[name] = saved[name]
 	end
 	return true

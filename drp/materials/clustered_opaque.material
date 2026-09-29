@@ -36,3 +36,4 @@ samplers { name: "PbrMetallicRoughness_metallicRoughnessTexture" wrap_u: WRAP_MO
 samplers { name: "PbrMaterial_normalTexture" wrap_u: WRAP_MODE_REPEAT wrap_v: WRAP_MODE_REPEAT filter_min: FILTER_MODE_MIN_LINEAR filter_mag: FILTER_MODE_MAG_LINEAR }
 samplers { name: "PbrMaterial_occlusionTexture" wrap_u: WRAP_MODE_REPEAT wrap_v: WRAP_MODE_REPEAT filter_min: FILTER_MODE_MIN_LINEAR filter_mag: FILTER_MODE_MAG_LINEAR }
 samplers { name: "PbrMaterial_emissiveTexture" wrap_u: WRAP_MODE_REPEAT wrap_v: WRAP_MODE_REPEAT filter_min: FILTER_MODE_MIN_LINEAR filter_mag: FILTER_MODE_MAG_LINEAR }
+fragment_constants { name: "drp_output_settings" type: CONSTANT_TYPE_USER }

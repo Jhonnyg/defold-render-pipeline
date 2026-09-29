@@ -1,4 +1,4 @@
-local utils = require("drp.utils")
+local utils = require("drp.internal.utils")
 
 local M = {}
 

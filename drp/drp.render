@@ -8,3 +8,4 @@ render_resources { name: "drp_cluster_depth_transparent" path: "/drp/materials/c
 render_resources { name: "drp_compat_opaque" path: "/drp/materials/compat_opaque.material" }
 render_resources { name: "drp_compat_mask" path: "/drp/materials/compat_mask.material" }
 render_resources { name: "drp_compat_transparent" path: "/drp/materials/compat_transparent.material" }
+render_resources { name: "drp_hdr_tonemap" path: "/drp/features/hdr/tonemap.material" }

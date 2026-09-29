@@ -20,6 +20,8 @@ in mediump mat4 var_view;
 #include "/drp/shaders/clustered_pbr.glsl"
 #endif
 
+#include "/drp/shaders/output.glsl"
+
 void main()
 {
     PBRParams params = get_pbr_params();
@@ -31,7 +33,7 @@ void main()
     }
 #ifdef EDITOR
     PBRLightData data = calculate_pbr_light_data(params, material, var_position.xyz);
-    out_fragColor = vec4(to_output(composite_pbr_light_data(data)), data.alpha);
+    out_fragColor = vec4(drp_output(composite_pbr_light_data(data)), data.alpha);
 #else
     if (cluster_debug.x > 0.5)
     {
@@ -40,6 +42,6 @@ void main()
     }
     PBRLightData data = calculate_clustered_pbr_light_data(params, material,
         var_position.xyz);
-    out_fragColor = vec4(to_output(composite_pbr_light_data(data)), data.alpha);
+    out_fragColor = vec4(drp_output(composite_pbr_light_data(data)), data.alpha);
 #endif
 }

@@ -12,6 +12,33 @@ per-cluster light lists are extension-owned SSBOs. Punctual light data remains
 in Defold's engine-owned `LightBuffer` UBO and is consumed directly by both the
 assignment compute shader and clustered PBR materials.
 
+## Library packaging
+
+The reusable library lives in `drp/`. Its `ext.manifest` and `src/` directory
+provide the native extension alongside the Lua modules, render resources,
+materials, shaders, and features. The repository's `game.project` exports this
+single directory. The top-level files are the public Lua API (`drp.lua`), the
+render script, the clustered and compatibility `.render` entry points, and the
+extension manifest. Supporting Lua modules live in `drp/internal/`; applications
+continue to use `require("drp.drp")`.
+
+The library export setting is:
+
+```ini
+[library]
+include_dirs = drp
+```
+
+Examples, tests, and development tools stay outside the library. Existing
+`require("drp.drp")` imports and `/drp/` resource paths also work when DRP is
+loaded as a project dependency.
+
+Consuming projects must also add the
+[asset-pbr 0.1.0 dependency](https://github.com/defold/asset-pbr/archive/refs/tags/0.1.0.zip)
+and apply the [project configuration](#project-configuration) below. Defold does
+not inherit a library's dependencies or project settings. Vantage is only
+needed for this repository's examples.
+
 ## Current API
 
 ```lua
@@ -45,8 +72,11 @@ render script.
 
 The `balanced`, `high`, and `ultra` profiles activate clustered lighting. On a
 cluster-capable device, switching to `compatibility` uses conventional asset-pbr
-material overrides for the same scene. Other profile settings still describe
-future rendering intent.
+material overrides for the same scene. These profiles also enable HDR scene
+rendering and tone mapping automatically when using `/drp/drp.render`; no HDR
+game object is required. Compatibility defaults to LDR. Shadow and other
+post-processing settings still describe future rendering intent. See
+[HDR setup and controls](drp/features/hdr/README.md).
 
 Devices without compute/SSBO support need a **compatibility build**: Defold loads
 render and model shader resources before the Lua quality fallback can run.
@@ -107,11 +137,25 @@ The configuration contracts, native SSBO bridge, clustered assignment,
 asset-pbr-based clustered shading, transparent ordering, and runtime
 compatibility overrides are active. Automatically assigning a clustered
 material from imported material metadata still needs an editor/build-pipeline
-integration. Shadows, HDR, and post-processing remain future work. See
+integration. HDR scene rendering, manual exposure, and ACES-style tone mapping
+are implemented as a separate feature. Shadows and the remaining post effects
+remain future work. See
 [clustered lighting](docs/CLUSTERED_LIGHTING.md) for the current pass and
 resource contract. The feature is functionally complete for its current MVP1
 scope; its remaining validation and pre-PR work is tracked in the
 [clustered feature README](drp/features/clustered/README.md). Regression checks
 and their commands are documented in [tests/README.md](tests/README.md).
+
+## Future improvements / work
+
+- **Shared scene/project shader data:** Provide a common shader include and a
+  shared uniform buffer for values such as exposure, fog, global tint, and
+  future shadow settings. Populate it from effective profile settings and
+  accumulated runtime overrides after capability checks, so shaders receive
+  the actual rendering state for that frame. Keep camera and per-pass data
+  separate. Automatic binding for any shader declaring the block, similar to
+  `LightBuffer`, would benefit from generic named global uniform-buffer support
+  in Defold. DRP could initially supply the same data through render constants
+  on each draw or compute dispatch. This is planned work, not an existing API.
 
 ---

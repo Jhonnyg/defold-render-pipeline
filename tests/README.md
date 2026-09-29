@@ -8,6 +8,8 @@ luajit tests/run.lua
 python3 tests/compatibility_spec.py
 c++ -std=c++11 -O2 tests/cluster_geometry_spec.cpp -o /tmp/drp-geometry-spec
 /tmp/drp-geometry-spec
+c++ -std=c++11 -O2 tests/hdr_math_spec.cpp -o /tmp/drp-hdr-math-spec
+/tmp/drp-hdr-math-spec
 ```
 
 The Lua tests exercise quality selection, required device-limit boundaries,
@@ -28,3 +30,9 @@ and run backend smoke scenes for synchronization, shading, alpha coverage,
 overflow, transparency, and camera movement. Orthographic cameras with positive
 near/far depths use clustering; cameras whose clip range crosses the eye use
 conventional shading for that frame.
+
+HDR coverage includes scene/resolve ordering, linear output for each PBR
+surface pass, presenter lifetime, target reuse and resize, runtime exposure,
+profile/capability fallback, allocation failures, and texture unbinding. The
+HDR C++ fixture compiles the actual GLSL tone curve and transfer function,
+including highlight values above 1 and the maximum half-float scene value.

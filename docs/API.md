@@ -6,6 +6,8 @@ The public entry point is:
 local drp = require("drp.drp")
 ```
 
+Modules under `drp/internal/` are implementation details, not public API.
+
 ## Lifecycle
 
 ### `drp.initialize(options)`
@@ -34,6 +36,10 @@ The bundled render script calls this automatically. Deferring activation keeps
 future render-target and GPU-buffer reallocations away from mid-frame state.
 
 ### `drp.finalize()`
+
+Call from a render-script callback for explicit runtime teardown. Defold render
+scripts have no `final()` callback. Engine/native-extension teardown handles
+application exit.
 
 Clears pipeline state, resource declarations, and listeners.
 
@@ -93,12 +99,32 @@ applications should normally leave them registered.
 
 ### `drp.set_runtime_overrides(overrides)`
 
-Replaces the complete runtime override table and queues a re-resolution of the
-active request. Overrides are merged recursively onto profile settings.
+Recursively merges supplied fields into the current runtime overrides and
+queues a re-resolution of the latest requested profile. Omitted fields retain
+their overrides, including fields in nested tables. Arrays and scalar values
+replace their fields; `false` is an explicit override. Inputs are copied, so
+later changes to the supplied table do not affect DRP. Passing `{}` preserves
+existing overrides.
 
-### `drp.clear_runtime_overrides()`
+### `drp.clear_runtime_overrides(path)`
 
-Clears all runtime settings overrides.
+Omitting `path` or passing `nil` clears all overrides. A string clears the
+field or subtree at that dot-separated path, restoring the profile's values
+while preserving unrelated overrides. Missing paths leave overrides unchanged.
+Paths cannot be empty or contain whitespace or empty segments. Arrays are
+replaced or cleared as whole fields, rather than addressed by element index.
+
+```lua
+drp.set_runtime_overrides({ rendering = { hdr = true, hdr_exposure = 1.0 } })
+drp.set_runtime_overrides({ rendering = { hdr_exposure = 2.0 } }) -- keeps hdr = true
+drp.clear_runtime_overrides("rendering.hdr_exposure") -- restore profile exposure
+drp.clear_runtime_overrides("rendering") -- clear the rendering subtree
+drp.clear_runtime_overrides(nil) -- clear everything; same as calling with no argument
+```
+
+Both functions validate the resulting profile before accepting the change and
+activate it at the next frame boundary. Failed changes preserve existing
+overrides and any pending quality request.
 
 Runtime overrides are intentionally profile-independent. Camera overrides will
 be a separate layer when camera integration is added.
@@ -182,3 +208,26 @@ print(cluster.cluster_count, cluster.storage_bytes)
 Exact occupancy, dropped-light, and overflowing-cluster counters are produced
 on the GPU. Until Defold exposes asynchronous storage-buffer readback, inspect
 those values through `lighting.cluster_debug`; magenta identifies overflow.
+
+## HDR rendering
+
+Select `/drp/drp.render` as the renderer; the native extension supplies the
+fullscreen geometry without a scene game object. `balanced`, `high`, and
+`ultra` enable HDR. The compatibility profile defaults to direct LDR output.
+
+```lua
+assert(drp.set_runtime_overrides({
+    rendering = { hdr = true, hdr_exposure = 1.0 },
+}))
+local hdr = drp.get_feature_diagnostics("hdr")
+```
+
+`hdr_exposure` is manual EV, defaults to 0, and is clamped to [-16, 16]. Changes
+activate at frame boundaries. `hdr = false` restores direct LDR output.
+Diagnostics report `enabled`, `available`, `reason`, `width`, `height`,
+`exposure`, `tone_mapper`, `color_format`, and `color_bytes`.
+`color_bytes` excludes the backend-dependent depth attachment. Unavailable native
+fullscreen support or unsupported targets disable HDR while retaining scene
+rendering. A failed fullscreen submission uses LDR for that frame and retries
+on the next frame without reallocating the target.
+See [HDR](../drp/features/hdr/README.md) for material and custom-render integration.

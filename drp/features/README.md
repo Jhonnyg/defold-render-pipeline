@@ -1,7 +1,7 @@
 # Render Features
 
 Render features are internal DRP modules listed explicitly in
-`drp/features.lua`:
+`drp/internal/features.lua`:
 
 ```lua
 local feature_modules = {
@@ -20,6 +20,7 @@ function M.on_profile_changed(context, transition) end
 function M.resize(context, width, height) end
 function M.begin_frame(context) end
 function M.render(context) end
+function M.on_message(context, message_id, message, sender) end
 function M.finalize(context) end
 
 return M
@@ -45,3 +46,9 @@ rebuilds view-space bounds only when their inputs change, assigns engine lights
 every frame, and submits asset-pbr opaque, mask, transparent, and diagnostic
 passes. See `clustered/README.md` for milestone status and
 `docs/CLUSTERED_LIGHTING.md` for its resource contract.
+
+`hdr/hdr.lua` owns the optional full-resolution floating-point scene target and
+the final tone-mapping pass. Clustered shading runs first and uses the HDR
+feature's target/output contract; HDR presents afterward. The native extension
+supplies the fullscreen geometry during the HDR frame hook, independently of
+scene collections. See [HDR](hdr/README.md) for setup and fallback behavior.

@@ -4,6 +4,7 @@ local M = {}
 -- order as they are implemented.
 local feature_modules = {
 	require("drp.features.clustered.clustered"),
+	require("drp.features.hdr.hdr"),
 }
 
 local function invoke(hook_name, context, ...)
@@ -33,6 +34,10 @@ end
 
 function M.render(context)
 	invoke("render", context)
+end
+
+function M.on_message(context, message_id, message, sender)
+	invoke("on_message", context, message_id, message, sender)
 end
 
 function M.get_diagnostics(name)

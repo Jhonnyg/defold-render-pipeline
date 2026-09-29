@@ -1,5 +1,6 @@
-local native = require("drp.native")
-local resources = require("drp.resources")
+local native = require("drp.internal.native")
+local resources = require("drp.internal.resources")
+local hdr = require("drp.features.hdr.hdr")
 local config = require("drp.features.clustered.config")
 local requirements = require("drp.features.clustered.requirements")
 
@@ -281,6 +282,7 @@ end
 local function make_constants(context, view, projection, near_z, far_z)
 	local common = render.constant_buffer()
 	common.cluster_projection = projection
+	common.drp_output_settings = hdr.output_settings()
 	common.cluster_grid = vmath.vector4(
 		state.grid_x,
 		state.grid_y,
@@ -350,7 +352,7 @@ local function build_clusters(build, assign)
 end
 
 local function begin_scene(camera_component)
-	render.set_render_target(render.RENDER_TARGET_DEFAULT)
+	render.set_render_target(hdr.get_render_target())
 	render.set_viewport(0, 0, render.get_window_width(), render.get_window_height())
 	render.set_camera(camera_component, { use_frustum = true })
 	-- The transparent pass leaves depth writes disabled. Depth clears honor the
@@ -400,6 +402,16 @@ local function render_depth_ranges(constants)
 	render.set_color_mask(true, true, true, true)
 end
 
+local function draw_models(constants)
+	-- The model predicate is the conventional opaque asset-pbr path. Its
+	-- default shader converts to display color, so use our linear-capable
+	-- PBR override while rendering into HDR.
+	local linear = constants.drp_output_settings.x > 0.5
+	if linear then render.enable_material("drp_compat_opaque") end
+	render.draw(state.model, { constants = constants, sort_order = render.SORT_FRONT_TO_BACK })
+	if linear then render.disable_material() end
+end
+
 local function draw_clustered(constants)
 	bind_cluster_buffers()
 	-- The range-recording pass does not populate hardware depth. Render opaque
@@ -424,7 +436,7 @@ local function draw_clustered(constants)
 	render.set_depth_func(graphics.COMPARE_FUNC_LEQUAL)
 	render.set_depth_mask(true)
 	render.enable_state(graphics.STATE_CULL_FACE)
-	render.draw(state.model, { sort_order = render.SORT_FRONT_TO_BACK })
+	draw_models(constants)
 	render.disable_state(graphics.STATE_CULL_FACE)
 
 	bind_cluster_buffers()
@@ -442,18 +454,20 @@ local function draw_clustered(constants)
 end
 
 local function draw_compatibility()
+	local constants = render.constant_buffer()
+	constants.drp_output_settings = hdr.output_settings()
 	-- Cluster-authored content is rendered through resource-level material
 	-- overrides. This keeps one scene usable by both Forward+ and compatibility
 	-- profiles while leaving its textures and per-model material constants intact.
 	render.enable_state(graphics.STATE_CULL_FACE)
-	render.draw(state.model, { sort_order = render.SORT_FRONT_TO_BACK })
+	draw_models(constants)
 	render.enable_material("drp_compat_opaque")
-	render.draw(state.opaque, { sort_order = render.SORT_FRONT_TO_BACK })
+	render.draw(state.opaque, { constants = constants, sort_order = render.SORT_FRONT_TO_BACK })
 	render.disable_material()
 	render.disable_state(graphics.STATE_CULL_FACE)
 
 	render.enable_material("drp_compat_mask")
-	render.draw(state.mask, { sort_order = render.SORT_FRONT_TO_BACK })
+	render.draw(state.mask, { constants = constants, sort_order = render.SORT_FRONT_TO_BACK })
 	render.disable_material()
 
 	render.set_depth_mask(false)
@@ -463,12 +477,13 @@ local function draw_compatibility()
 		graphics.BLEND_FACTOR_ONE_MINUS_SRC_ALPHA
 	)
 	render.enable_material("drp_compat_transparent")
-	render.draw(state.transparent, { sort_order = render.SORT_BACK_TO_FRONT })
+	render.draw(state.transparent, { constants = constants, sort_order = render.SORT_BACK_TO_FRONT })
 	render.disable_material()
 	render.disable_state(graphics.STATE_BLEND)
 end
 
 local function end_scene()
+	hdr.scene_rendered()
 
 	render.disable_state(graphics.STATE_DEPTH_TEST)
 	render.set_depth_mask(false)

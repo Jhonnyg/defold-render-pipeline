@@ -1,5 +1,5 @@
-local pipeline = require("drp.pipeline")
-local quality = require("drp.quality")
+local pipeline = require("drp.internal.pipeline")
+local quality = require("drp.internal.quality")
 
 ---@class drp.CapabilityRecord
 ---@field platform string Normalized platform name, such as `macos`, `windows`, or `html5`.
@@ -51,6 +51,17 @@ local quality = require("drp.quality")
 ---@field depth_range_culling boolean Whether tile depth ranges reject empty slices.
 ---@field buffer_sizes table<string, integer> Per-buffer allocation sizes.
 
+---@class drp.HDRDiagnostics
+---@field enabled boolean Whether the profile requests HDR.
+---@field available boolean Whether the HDR target and fullscreen draw are ready this frame.
+---@field reason string|nil Why HDR is inactive.
+---@field width integer Target width in physical pixels.
+---@field height integer Target height in physical pixels.
+---@field exposure number Effective exposure in EV stops.
+---@field tone_mapper string Tone-mapping curve name.
+---@field color_format string Scene color format.
+---@field color_bytes integer Scene color allocation, excluding depth.
+
 ---@class drp.QualityTransition
 ---@field frame integer Frame on which the transition became active.
 ---@field dt number Delta time passed to `drp.begin_frame()`.
@@ -84,8 +95,9 @@ end
 
 ---Finalizes the pipeline and clears resource declarations and listeners.
 ---
----Call this from the render script's `final()` lifecycle function. The bundled
----DRP render script already does this.
+---Call this from a render-script callback when explicitly tearing down the
+---pipeline at runtime. Defold render scripts do not have a `final()` callback;
+---application exit is handled by engine/native-extension teardown.
 ---@return boolean finalized Always `true` after cleanup completes.
 function M.finalize()
 	return pipeline.finalize()
@@ -170,8 +182,8 @@ end
 ---The clustered record includes grid dimensions, effective capacities, buffer
 ---sizes, and the conservative assignment workload. Exact occupancy and
 ---overflow remain GPU-resident and are visualized by the clustered heatmap.
----@param name string Feature name; currently `"clustered"`.
----@return drp.ClusteredDiagnostics|nil diagnostics
+---@param name string Feature name: `"clustered"` or `"hdr"`.
+---@return drp.ClusteredDiagnostics|drp.HDRDiagnostics|nil diagnostics
 ---@return string|nil error
 function M.get_feature_diagnostics(name)
 	return pipeline.get_feature_diagnostics(name)
@@ -225,10 +237,12 @@ function M.get_profile_names()
 	return quality.get_names()
 end
 
----Replaces the complete runtime settings-override table.
+---Merges supplied fields into the current runtime settings overrides.
 ---
----Overrides are recursively merged onto the effective profile without mutating
----the registered definition. The new resolution activates next frame.
+---Nested maps merge recursively; arrays and scalar values replace their fields.
+---Omitted fields retain their overrides, and false is an explicit value.
+---Overrides are copied and applied over the profile without mutating its
+---definition. The new resolution activates next frame.
 ---@param overrides table Settings keyed like `profile.settings`.
 ---@return drp.QualityResolution|nil resolution Queued resolution.
 ---@return string|nil error Error message when DRP is uninitialized or the value is invalid.
@@ -236,13 +250,17 @@ function M.set_runtime_overrides(overrides)
 	return pipeline.set_runtime_overrides(overrides)
 end
 
----Clears all runtime settings overrides.
+---Clears all runtime settings overrides, or a field/subtree at a dotted path.
 ---
----The unmodified requested profile is re-resolved and activates next frame.
+---Omitting the path or passing nil clears everything. A string such as
+---"rendering.hdr_exposure" restores that field's profile value; "rendering"
+---clears the whole subtree. Missing paths leave overrides unchanged. Arrays
+---are cleared as whole fields. The new resolution activates next frame.
+---@param path string|nil Dot-separated field names without empty segments or whitespace.
 ---@return drp.QualityResolution|nil resolution Queued resolution.
----@return string|nil error Error message when DRP is uninitialized.
-function M.clear_runtime_overrides()
-	return pipeline.clear_runtime_overrides()
+---@return string|nil error Error message when DRP is uninitialized, the path is invalid, or resolution fails.
+function M.clear_runtime_overrides(path)
+	return pipeline.clear_runtime_overrides(path)
 end
 
 ---Registers a callback for committed quality transitions.
