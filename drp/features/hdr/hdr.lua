@@ -1,4 +1,5 @@
 local resources = require("drp.internal.resources")
+local native = require("drp.internal.native")
 
 local M = { name = "hdr" }
 
@@ -6,7 +7,6 @@ local state = {
 	enabled = false,
 	available = false,
 	render_available = false,
-	presenters = {},
 	width = 0,
 	height = 0,
 	exposure = 0,
@@ -38,14 +38,13 @@ local function unavailable_reason(context, width, height)
 	if not state.render_available then
 		return "render runtime unavailable"
 	end
+	if not native.is_fullscreen_available() then
+		return "native fullscreen rendering is unavailable"
+	end
 	
 	local lighting = context.profile.settings.lighting or {}
 	if lighting.cluster_debug == true then
 		return "cluster debug bypass"
-	end
-	
-	if not next(state.presenters) then
-		return "HDR presenter not loaded"
 	end
 	
 	if width < 1 or height < 1 then
@@ -91,7 +90,10 @@ local function configure(context)
 		state.reason = state.failure.reason
 		return
 	end
-	if state.target and state.width == width and state.height == height then return end
+	if state.target and state.width == width and state.height == height then
+		state.available = true
+		return
+	end
 	release_target()
 	local ok, target = pcall(render.render_target, "drp_hdr_scene", {
 		[graphics.BUFFER_TYPE_COLOR0_BIT] = {
@@ -133,13 +135,14 @@ end
 function M.begin_frame(context)
 	state.scene_rendered = false
 	configure(context)
-end
-
--- A mesh is required by render.draw(). Its script announces its lifetime so
--- scenes without the presenter safely retain direct LDR rendering.
-function M.on_message(_, message_id, message, sender)
-	if message_id == hash("drp_hdr_presenter") then
-		state.presenters[tostring(sender)] = message.loaded and true or nil
+	if state.available then
+		-- Render entries expire every frame, even when the target is reused.
+		-- Ensure the resolve can draw before any scene pass selects linear HDR.
+		local submitted, err = native.submit_fullscreen("/drp/features/hdr/tonemap.materialc")
+		if not submitted then
+			state.reason = "HDR fullscreen submission failed: " .. tostring(err)
+			state.available = false
+		end
 	end
 end
 
@@ -193,7 +196,6 @@ function M.get_diagnostics()
 		tone_mapper = "aces_fitted",
 		color_format = "rgba16f",
 		color_bytes = state.width * state.height * 8,
-		presenter_loaded = next(state.presenters) ~= nil,
 	}
 end
 

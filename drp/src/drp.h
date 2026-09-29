@@ -5,7 +5,10 @@
 #define DM_DRP_H
 
 #include <dmsdk/dlib/array.h>
+#include <dmsdk/dlib/context_registry.h>
 #include <dmsdk/graphics/graphics.h>
+#include <dmsdk/render/render.h>
+#include <dmsdk/resource/resource.h>
 
 #include <stdint.h>
 
@@ -18,9 +21,11 @@ struct lua_State;
  *
  * The extension owns one DRPContext per application, registered as "drp" in
  * the engine's context registry. Each context owns its buffer records and GPU
- * buffers, and borrows its graphics context. Lua bindings borrow the DRPContext.
+ * buffers and fullscreen geometry, and borrows engine contexts. Lua bindings
+ * borrow the DRPContext. Fullscreen materials are retained resource references.
  * State is unsynchronized; use the engine's graphics thread for GPU operations.
- * Finalize graphics before the engine destroys its context, then delete the
+ * Release fullscreen resources on ENGINE_DELETE while render and resource
+ * contexts exist. Finalize graphics before the engine destroys it, then delete the
  * DRPContext during app finalization. The destructor releases CPU memory only.
  */
 
@@ -77,6 +82,8 @@ namespace dmGraphics
 
 namespace dmDRP
 {
+    struct FullscreenMaterial;
+
     enum
     {
         NATIVE_API_VERSION   = 1,  ///< Lua API_VERSION and capabilities.native_bridge_version.
@@ -102,18 +109,32 @@ namespace dmDRP
 
     /**
      * Application-owned native state. Construct/register in AppInitialize,
-     * attach graphics in Initialize, release GPU resources in Finalize, and
-     * unregister/delete in AppFinalize. Never copy ownership of GPU buffers.
+     * attach graphics in Initialize, release fullscreen resources on ENGINE_DELETE
+     * and storage buffers in Finalize, then unregister/delete in AppFinalize.
+     * Never copy ownership of GPU resources.
      */
     struct DRPContext
     {
         dmGraphics::HContext         m_GraphicsContext;       ///< Borrowed; 0 before initialization and after finalization.
         dmArray<StorageBufferRecord> m_StorageBuffers;        ///< Owned allocations; released by FinalizeGraphics().
         StorageBufferId              m_NextStorageBufferId;   ///< Next ID candidate; preserved by buffer reset.
+        HContextRegistry             m_ContextRegistry;       ///< Borrowed for lazy lookup after engine initialization.
+        dmRender::HRenderContext     m_RenderContext;         ///< Borrowed; unavailable during extension Initialize.
+        HResourceFactory             m_ResourceFactory;       ///< Borrowed; used to retain fullscreen materials.
+        dmGraphics::HVertexBuffer    m_FullscreenVertexBuffer; ///< Shared owned fullscreen triangle.
+        dmGraphics::HVertexDeclaration m_FullscreenVertexDeclaration; ///< Owned position/texcoord0 layout.
+        dmArray<FullscreenMaterial*> m_FullscreenMaterials;   ///< Owned stable records and retained material references.
+        bool                         m_FullscreenFinalized;   ///< Prevents recreation during scene/script teardown.
 
         DRPContext()
         : m_GraphicsContext(0)
         , m_NextStorageBufferId(1)
+        , m_ContextRegistry(0)
+        , m_RenderContext(0)
+        , m_ResourceFactory(0)
+        , m_FullscreenVertexBuffer(0)
+        , m_FullscreenVertexDeclaration(0)
+        , m_FullscreenFinalized(false)
         {
         }
 
@@ -149,6 +170,26 @@ namespace dmDRP
      * an unavailable context when called after detachment.
      */
     void FinalizeScript(lua_State* L);
+
+    /**
+     * Submit one fullscreen triangle using a compiled .materialc resource.
+     * Call once per material from render-script update before drawing its
+     * predicate, after the engine clears the frame's render list. Submission
+     * only creates a render-list entry: the usual render.draw() command controls
+     * target, textures, constants and draw timing. Material tags select the pass.
+     * Geometry and material references are cached until FinalizeFullscreen().
+     * @param error Optional output; receives a static error message on failure.
+     * @return True when submitted, false for unavailable contexts, shutdown,
+     *         invalid/unavailable material or resource allocation failure.
+     */
+    bool SubmitFullscreen(DRPContext* context, const char* material_path, const char** error);
+
+    /**
+     * Release retained fullscreen materials and GPU geometry on ENGINE_DELETE,
+     * before the engine destroys render/resource contexts. Safe to repeat and
+     * permanently disables further fullscreen submissions for this context.
+     */
+    void FinalizeFullscreen(DRPContext* context);
 
     /**
      * Return this DRPContext's borrowed graphics pointer, or 0 when unattached.

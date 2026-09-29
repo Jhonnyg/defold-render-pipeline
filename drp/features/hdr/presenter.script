@@ -1,7 +1,0 @@
-function init(self)
-	msg.post("@render:", "drp_hdr_presenter", { loaded = true })
-end
-
-function final(self)
-	msg.post("@render:", "drp_hdr_presenter", { loaded = false })
-end

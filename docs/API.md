@@ -191,9 +191,9 @@ those values through `lighting.cluster_debug`; magenta identifies overflow.
 
 ## HDR rendering
 
-Add `/drp/features/hdr/hdr.go` once to the loaded scene; the Sponza and
-clustered-renderer examples already include it. `balanced`, `high`, and `ultra`
-enable HDR. The compatibility profile defaults to direct LDR output.
+Select `/drp/drp.render` as the renderer; the native extension supplies the
+fullscreen geometry without a scene game object. `balanced`, `high`, and
+`ultra` enable HDR. The compatibility profile defaults to direct LDR output.
 
 ```lua
 assert(drp.set_runtime_overrides({
@@ -205,7 +205,9 @@ local hdr = drp.get_feature_diagnostics("hdr")
 `hdr_exposure` is manual EV, defaults to 0, and is clamped to [-16, 16]. Changes
 activate at frame boundaries. `hdr = false` restores direct LDR output.
 Diagnostics report `enabled`, `available`, `reason`, `width`, `height`,
-`exposure`, `tone_mapper`, `color_format`, `color_bytes`, and `presenter_loaded`.
-`color_bytes` excludes the backend-dependent depth attachment. Missing presenter
-geometry or unsupported targets disable HDR while retaining scene rendering.
+`exposure`, `tone_mapper`, `color_format`, and `color_bytes`.
+`color_bytes` excludes the backend-dependent depth attachment. Unavailable native
+fullscreen support or unsupported targets disable HDR while retaining scene
+rendering. A failed fullscreen submission uses LDR for that frame and retries
+on the next frame without reallocating the target.
 See [HDR](../drp/features/hdr/README.md) for material and custom-render integration.

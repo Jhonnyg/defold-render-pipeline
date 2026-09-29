@@ -53,7 +53,7 @@ local quality = require("drp.internal.quality")
 
 ---@class drp.HDRDiagnostics
 ---@field enabled boolean Whether the profile requests HDR.
----@field available boolean Whether an HDR scene target and presenter are available.
+---@field available boolean Whether the HDR target and fullscreen draw are ready this frame.
 ---@field reason string|nil Why HDR is inactive.
 ---@field width integer Target width in physical pixels.
 ---@field height integer Target height in physical pixels.
@@ -61,7 +61,6 @@ local quality = require("drp.internal.quality")
 ---@field tone_mapper string Tone-mapping curve name.
 ---@field color_format string Scene color format.
 ---@field color_bytes integer Scene color allocation, excluding depth.
----@field presenter_loaded boolean Whether the fullscreen presenter is loaded.
 
 ---@class drp.QualityTransition
 ---@field frame integer Frame on which the transition became active.

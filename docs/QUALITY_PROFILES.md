@@ -119,8 +119,8 @@ tone-map/sRGB pass. It is true for balanced/high/ultra and false for compatibili
 runtime override API, without reallocating the target. HDR can also be enabled
 for the compatibility path on supported devices.
 
-HDR availability is independent of clustered lighting: a missing presenter or
-unsupported floating-point target falls back to direct LDR while retaining the
-selected lighting profile. Strict capability mode requires an explicit positive
+HDR availability is independent of clustered lighting: unavailable native
+fullscreen support or an unsupported floating-point target falls back to direct
+LDR while retaining the selected lighting profile. Strict capability mode requires an explicit positive
 `float_render_targets` capability; non-strict mode attempts allocation when it
 is unknown. The cluster heatmap always bypasses tone mapping.

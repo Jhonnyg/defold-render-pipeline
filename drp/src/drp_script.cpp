@@ -269,6 +269,21 @@ namespace dmDRP
         return 1;
     }
 
+    static int SubmitFullscreen(lua_State* L)
+    {
+        DRPContext* context = CheckContext(L);
+        const char* material_path = luaL_checkstring(L, 1);
+        const char* error = 0;
+        if (!dmDRP::SubmitFullscreen(context, material_path, &error))
+        {
+            lua_pushboolean(L, 0);
+            lua_pushstring(L, error);
+            return 2;
+        }
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+
     static int Reset(lua_State* L)
     {
         DM_LUA_STACK_CHECK(L, 1);
@@ -288,6 +303,7 @@ namespace dmDRP
         {"bind_storage_buffer",       BindStorageBuffer},
         {"unbind_storage_buffer",     UnbindStorageBuffer},
         {"delete_storage_buffer",     DeleteStorageBuffer},
+        {"submit_fullscreen",         SubmitFullscreen},
         {"reset",                     Reset},
         {0, 0}
     };

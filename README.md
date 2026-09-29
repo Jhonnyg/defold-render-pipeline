@@ -73,8 +73,10 @@ render script.
 The `balanced`, `high`, and `ultra` profiles activate clustered lighting. On a
 cluster-capable device, switching to `compatibility` uses conventional asset-pbr
 material overrides for the same scene. These profiles also enable HDR scene
-rendering and tone mapping; compatibility defaults to LDR. Shadow and other post-processing settings still describe future
-rendering intent. See [HDR setup and controls](drp/features/hdr/README.md).
+rendering and tone mapping automatically when using `/drp/drp.render`; no HDR
+game object is required. Compatibility defaults to LDR. Shadow and other
+post-processing settings still describe future rendering intent. See
+[HDR setup and controls](drp/features/hdr/README.md).
 
 Devices without compute/SSBO support need a **compatibility build**: Defold loads
 render and model shader resources before the Lua quality fallback can run.

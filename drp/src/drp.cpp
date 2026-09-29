@@ -21,6 +21,7 @@ static dmExtension::Result AppInitialize(dmExtension::AppParams* params)
     dmDRP::DRPContext* context = new (std::nothrow) dmDRP::DRPContext;
     if (!context)
         return dmExtension::RESULT_INIT_ERROR;
+    context->m_ContextRegistry = registry;
 
     if (ContextRegistrySet(registry, DRP_CONTEXT_NAME, context) != 0)
     {
@@ -65,6 +66,19 @@ static dmExtension::Result Finalize(dmExtension::Params* params)
     return dmExtension::RESULT_OK;
 }
 
+static void OnEvent(dmExtension::Params* params, const dmExtension::Event* event)
+{
+    if (event->m_Event != EXTENSION_EVENT_ID_ENGINE_DELETE)
+        return;
+
+    HContextRegistry registry = ExtensionParamsGetContextRegistry(params);
+    dmDRP::DRPContext* context = registry
+        ? (dmDRP::DRPContext*) ContextRegistryGet(registry, DRP_CONTEXT_NAME) : 0;
+    // Finalize runs after render-context destruction. Material references must
+    // be released here, while their render and resource owners still exist.
+    dmDRP::FinalizeFullscreen(context);
+}
+
 static dmExtension::Result AppFinalize(dmExtension::AppParams* params)
 {
     HContextRegistry registry = ExtensionAppParamsGetContextRegistry(params);
@@ -81,4 +95,4 @@ static dmExtension::Result AppFinalize(dmExtension::AppParams* params)
 
 // The exported symbol must match the name in ext.manifest. Extender emits a
 // direct call to this symbol from dmExportedSymbols() when linking the engine.
-DM_DECLARE_EXTENSION(drp, "DrpNative", AppInitialize, AppFinalize, Initialize, 0, 0, Finalize)
+DM_DECLARE_EXTENSION(drp, "DrpNative", AppInitialize, AppFinalize, Initialize, 0, OnEvent, Finalize)

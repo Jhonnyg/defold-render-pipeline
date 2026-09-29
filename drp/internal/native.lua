@@ -52,6 +52,26 @@ function M.get_capabilities()
 	return backend.get_capabilities()
 end
 
+---Returns whether the loaded native bridge supports fullscreen submissions.
+---@return boolean available
+function M.is_fullscreen_available()
+	local backend = get_backend()
+	return backend ~= nil and type(backend.submit_fullscreen) == "function"
+end
+
+---Submits a native fullscreen triangle for the current render-script update.
+---The material supplies its render predicate tags; render.draw() draws it later.
+---@param material_path string Compiled .materialc resource included by the renderer.
+---@return boolean|nil submitted
+---@return string|nil error
+function M.submit_fullscreen(material_path)
+	local backend = get_backend()
+	if not backend or type(backend.submit_fullscreen) ~= "function" then
+		return nil, "native fullscreen rendering is unavailable"
+	end
+	return backend.submit_fullscreen(material_path)
+end
+
 ---Creates a storage buffer. Call only from the render script.
 ---@param size integer Buffer size in bytes; must be non-zero and four-byte aligned.
 ---@param usage integer|nil One of the `BUFFER_USAGE_*` constants. Defaults to dynamic.

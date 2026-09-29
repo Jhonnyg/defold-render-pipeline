@@ -1,5 +1,0 @@
-material: "/drp/features/hdr/tonemap.material"
-vertices: "/drp/features/hdr/fullscreen.buffer"
-primitive_type: PRIMITIVE_TRIANGLE_STRIP
-position_stream: "position"
-normal_stream: "position"

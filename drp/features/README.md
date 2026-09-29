@@ -49,6 +49,6 @@ passes. See `clustered/README.md` for milestone status and
 
 `hdr/hdr.lua` owns the optional full-resolution floating-point scene target and
 the final tone-mapping pass. Clustered shading runs first and uses the HDR
-feature's target/output contract; HDR presents afterward. Presenter registration
-messages are forwarded by the bundled render script through the same ordered
-feature dispatcher. See [HDR](hdr/README.md) for setup and fallback behavior.
+feature's target/output contract; HDR presents afterward. The native extension
+supplies the fullscreen geometry during the HDR frame hook, independently of
+scene collections. See [HDR](hdr/README.md) for setup and fallback behavior.
