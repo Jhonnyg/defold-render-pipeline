@@ -5,8 +5,9 @@ Render features are internal DRP modules listed explicitly in
 
 ```lua
 local feature_modules = {
-    require("drp.features.clustered.clustered"),
     require("drp.features.shadows.shadows"),
+    require("drp.features.clustered.clustered"),
+    require("drp.features.hdr.hdr"),
 }
 ```
 
@@ -40,7 +41,12 @@ framework. There is no runtime registration, hook validation, protected-call
 wrapper, or special hook return protocol. Applications use the stable `drp.drp`
 facade and quality settings instead of manipulating the feature list.
 
-`clustered/clustered.lua` is the first implementation. It activates for
+`shadows/shadows.lua` reserves the pre-scene rendering position and exposes
+active shadow settings through diagnostics. It currently allocates no resources
+and always reports `available = false`. See [Shadows](shadows/README.md) for the
+scaffold contract and next steps.
+
+`clustered/clustered.lua` is the first rendering implementation. It activates for
 profiles whose `rendering.path` is `forward_plus`, owns the cluster SSBOs,
 rebuilds view-space bounds only when their inputs change, assigns engine lights
 every frame, and submits asset-pbr opaque, mask, transparent, and diagnostic

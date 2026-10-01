@@ -196,7 +196,8 @@ capabilities.
 ### `drp.get_feature_diagnostics(name)`
 
 Returns a defensive snapshot of CPU-visible diagnostics for a feature. The
-currently supported name is `"clustered"`. Its record contains the grid,
+currently supported names are `"clustered"`, `"hdr"`, and `"shadows"`. The
+clustered record contains the grid,
 effective capacities, per-buffer byte sizes, total storage use, whether device
 limits clamped the profile, and a conservative maximum assignment workload.
 
@@ -208,6 +209,19 @@ print(cluster.cluster_count, cluster.storage_bytes)
 Exact occupancy, dropped-light, and overflowing-cluster counters are produced
 on the GPU. Until Defold exposes asynchronous storage-buffer readback, inspect
 those values through `lighting.cluster_debug`; magenta identifies overflow.
+
+The shadows feature currently provides configuration/lifecycle scaffolding:
+
+```lua
+local shadows = drp.get_feature_diagnostics("shadows")
+print(shadows.settings.quality) -- active profile's requested quality
+print(shadows.available)       -- false; rendering is not implemented yet
+print(shadows.effective_quality) -- "off"
+```
+
+Its settings follow profile and runtime-override frame boundaries. `enabled`
+reports the request, not rendered shadows. See the
+[shadows scaffold](../drp/features/shadows/README.md) for the full record.
 
 ## HDR rendering
 

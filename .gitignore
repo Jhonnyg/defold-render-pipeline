@@ -3,6 +3,7 @@
 /build
 /docs/internal
 /tests/**
+!/tests/shadows_spec.lua
 .externalToolBuilders
 .DS_Store
 Thumbs.db

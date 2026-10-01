@@ -96,13 +96,6 @@ Read [the quality-profile documentation](docs/QUALITY_PROFILES.md) and
 its internal Lua surface are documented in
 [the native bridge reference](docs/NATIVE_BRIDGE.md).
 
-> **TODO — native glTF surface modes:** Automatic opaque, alpha-mask, and
-> transparent classification should ultimately be provided by Defold's import,
-> material, and default PBR systems rather than implemented independently by
-> DRP. The proposed engine/extension boundary is recorded in
-> [Native glTF PBR Surface Modes](docs/GLTF_PBR_SURFACE_MODES.md). Until then,
-> DRP model material slots use explicit clustered surface variants.
-
 The runnable [Sponza clustered-shading example](examples/README.md) is the
 default bootstrap collection. Smaller cluster-assignment and quality API
 examples remain available for focused testing.
@@ -131,22 +124,10 @@ workgroup, shared-memory, or uniform-buffer limits cause fallback. Strict mode
 also rejects unknown required limits. Runtime settings are applied before
 validating these requirements.
 
-## Status
-
-The configuration contracts, native SSBO bridge, clustered assignment,
-asset-pbr-based clustered shading, transparent ordering, and runtime
-compatibility overrides are active. Automatically assigning a clustered
-material from imported material metadata still needs an editor/build-pipeline
-integration. HDR scene rendering, manual exposure, and ACES-style tone mapping
-are implemented as a separate feature. Shadows and the remaining post effects
-remain future work. See
-[clustered lighting](docs/CLUSTERED_LIGHTING.md) for the current pass and
-resource contract. The feature is functionally complete for its current MVP1
-scope; its remaining validation and pre-PR work is tracked in the
-[clustered feature README](drp/features/clustered/README.md). Regression checks
-and their commands are documented in [tests/README.md](tests/README.md).
-
 ## Future improvements / work
+
+- **Shadows:** The MVP1 covers soft directional, point and spot shadows,
+  automatic caching, POC migration, and the separate requirements for a 256-shadow-light target.
 
 - **Shared scene/project shader data:** Provide a common shader include and a
   shared uniform buffer for values such as exposure, fog, global tint, and
