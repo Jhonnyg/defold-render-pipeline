@@ -10,8 +10,12 @@
 // replaces its all-lights loop with a lookup through the compact list for the
 // fragment's cluster. The including root defines MAX_LIGHT_COUNT before
 // asset-pbr imports the engine-owned LightBuffer.
+#include "/drp/shaders/pbr_engine_compat.glsl"
 #include "/defold-pbr/shaders/pbr_lighting.glsl"
+#undef world_to_view_point
+#undef world_to_view_dir
 #include "/drp/shaders/clustered_common.glsl"
+#include "/drp/shaders/shadows.glsl"
 
 layout(std430, set = 2, binding = 3) readonly buffer ClusterLightIndicesBuffer
 {
@@ -37,7 +41,7 @@ PBRLightData calculate_clustered_pbr_light_data(PBRParams params,
         {
             uint light_index = cluster_light_indices[entry.x + index];
             Light light = lights[light_index];
-            add_pbr_light_data(data, evaluate_light(
+            PBRLightData direct = evaluate_light(
                 light.position,
                 light.color,
                 light.direction_range,
@@ -45,7 +49,11 @@ PBRLightData calculate_clustered_pbr_light_data(PBRParams params,
                 material,
                 params.normal,
                 params.view,
-                fragment_position));
+                fragment_position);
+            float visibility = drp_shadow_visibility(light_index, fragment_position, params.normal, light.position.xyz);
+            direct.diffuse *= visibility;
+            direct.specular *= visibility;
+            add_pbr_light_data(data, direct);
         }
 
         // Keep constant indirect light identical to asset-pbr's conventional

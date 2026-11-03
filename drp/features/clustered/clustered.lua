@@ -1,6 +1,8 @@
 local native = require("drp.internal.native")
 local resources = require("drp.internal.resources")
 local hdr = require("drp.features.hdr.hdr")
+local shadows = require("drp.features.shadows.shadows")
+local scene_camera = require("drp.internal.camera")
 local config = require("drp.features.clustered.config")
 local requirements = require("drp.features.clustered.requirements")
 
@@ -49,19 +51,6 @@ local state = {
 
 local function ceil_div(value, divisor)
 	return math.floor((value + divisor - 1) / divisor)
-end
-
-local function active_camera()
-	if not _G.camera then
-		return nil
-	end
-	local cameras = camera.get_cameras()
-	for index = #cameras, 1, -1 do
-		if camera.get_enabled(cameras[index]) then
-			return cameras[index]
-		end
-	end
-	return nil
 end
 
 local function clustered_requested(context)
@@ -283,6 +272,7 @@ local function make_constants(context, view, projection, near_z, far_z)
 	local common = render.constant_buffer()
 	common.cluster_projection = projection
 	common.drp_output_settings = hdr.output_settings()
+	common.drp_shadow_inverse_view = vmath.inv(view)
 	common.cluster_grid = vmath.vector4(
 		state.grid_x,
 		state.grid_y,
@@ -414,6 +404,7 @@ end
 
 local function draw_clustered(constants)
 	bind_cluster_buffers()
+	shadows.bind_scene(constants)
 	-- The range-recording pass does not populate hardware depth. Render opaque
 	-- and masked surfaces with conventional depth writes so visibility is stable
 	-- across backends and independent of SSBO fragment-side effects.
@@ -557,24 +548,25 @@ function M.render(context)
 	if not state.render_available then
 		return
 	end
-	local camera_component = active_camera()
+	local snapshot = context.camera or scene_camera.snapshot()
+	local camera_component = snapshot and snapshot.component
 	if not camera_component then
 		return
 	end
 
 	-- Logarithmic slices require positive view depths. Orthographic cameras
 	-- whose clip range crosses the eye use forward shading for this frame.
-	local camera_near = camera.get_near_z(camera_component)
-	local camera_far = camera.get_far_z(camera_component)
-	if not state.enabled or not state.available or camera_near <= 0 or camera_far <= camera_near then
+	local camera_near = snapshot.near
+	local camera_far = snapshot.far
+	if not state.enabled or not state.available or camera_near <= 0 or camera_far <= camera_near or not shadows.prepare_scene() then
 		begin_scene(camera_component)
 		draw_compatibility()
 		end_scene()
 		return
 	end
 
-	local view = camera.get_view(camera_component)
-	local projection = camera.get_projection(camera_component)
+	local view = snapshot.view
+	local projection = snapshot.projection
 	local near_z = math.max(camera_near, 0.0001)
 	local far_z = math.max(camera_far, near_z + 0.0001)
 	update_projection(projection, near_z, far_z)
@@ -585,6 +577,7 @@ function M.render(context)
 	render_depth_ranges(common)
 	build_clusters(build, assign)
 	draw_clustered(common)
+	shadows.unbind_scene()
 	end_scene()
 end
 

@@ -13,6 +13,8 @@ function M.run()
 	local selected_compute
 	local limits = {
 		max_storage_buffers_per_stage = 8,
+		max_textures_per_stage = 16,
+		max_samplers_per_stage = 16,
 		max_compute_workgroup_size_x = 256,
 		max_compute_workgroup_size_y = 256,
 		max_compute_workgroup_size_z = 64,
@@ -39,6 +41,7 @@ function M.run()
 	_G.render = setmetatable({
 		predicate = function(tags) return tags[1] end,
 		constant_buffer = function() return {} end,
+		render_target = function(name) return name end,
 		get_window_width = function() return width end,
 		get_window_height = function() return height end,
 		set_compute = function(name) selected_compute = name end,
@@ -108,12 +111,15 @@ function M.run()
 		assert(pipeline.set_quality(profile))
 		width, height = 640 + index * 8, 480 + index * 4
 		frame()
-		assert(count_buffers() == (profile == "compatibility" and 0 or 6))
+		assert(count_buffers() == (profile == "compatibility" and 0 or 7))
 	end
 	pipeline.finalize()
 
 	local minima = {
 		max_storage_buffers_per_stage = 6,
+		max_textures_per_stage = 7,
+		max_samplers_per_stage = 7,
+		max_storage_buffer_range = 15360,
 		max_compute_workgroup_size_x = 64,
 		max_compute_workgroup_size_y = 4,
 		max_compute_workgroup_size_z = 4,
@@ -180,11 +186,18 @@ function M.run()
 	build_resources = "1"
 	_G.hash = function(value) return value end
 	local target_alive, scene_draws, resolves = false, {}, 0
-	render.render_target = function() assert(not target_alive); target_alive = true; return "hdr-target" end
-	render.delete_render_target = function() assert(target_alive); target_alive = false end
+	local fullscreen_ready = false
+	drp_native.submit_fullscreen = function(material)
+		assert(material == "/drp/features/hdr/tonemap.materialc" and target_alive)
+		assert(#scene_draws == 0, "fullscreen submission must precede HDR scene draws")
+		fullscreen_ready = true
+		return true
+	end
+	render.render_target = function(name) if name ~= "drp_hdr_scene" then return name end; assert(not target_alive); target_alive = true; return "hdr-target" end
+	render.delete_render_target = function(name) if name ~= "hdr-target" then return end; assert(target_alive); target_alive = false end
 	render.draw = function(predicate, options)
 		if predicate == "drp_hdr_tonemap" then
-			assert(target_alive and #scene_draws > 0)
+			assert(fullscreen_ready and target_alive and #scene_draws > 0)
 			for _, draw in ipairs(scene_draws) do assert(draw.linear == 1) end
 			resolves = resolves + 1
 		elseif predicate == "model" or predicate:match("^drp_cluster_") then
@@ -192,19 +205,18 @@ function M.run()
 		end
 	end
 	assert(pipeline.initialize({ quality = "balanced", capabilities = { features = { float_render_targets = true } } }))
-	pipeline.on_message("drp_hdr_presenter", { loaded = true }, "hdr-test")
 	frame()
 	assert(target_alive and resolves == 1)
 	assert(pipeline.get_feature_diagnostics("hdr").available)
 	assert(pipeline.set_runtime_overrides({ rendering = { hdr = false } }))
-	scene_draws = {}; frame()
+	scene_draws = {}; fullscreen_ready = false; frame()
 	assert(not target_alive and resolves == 1)
+	assert(not fullscreen_ready, "disabled HDR must not submit fullscreen geometry")
 	for _, draw in ipairs(scene_draws) do assert(draw.linear == 0) end
 	assert(pipeline.set_runtime_overrides({ rendering = { hdr = true } }))
 	assert(pipeline.set_quality("compatibility"))
-	scene_draws = {}; frame()
+	scene_draws = {}; fullscreen_ready = false; frame()
 	assert(target_alive and resolves == 2, "HDR must also work with forward material overrides")
-	pipeline.on_message("drp_hdr_presenter", { loaded = false }, "hdr-test")
 	pipeline.finalize()
 	assert(not target_alive)
 

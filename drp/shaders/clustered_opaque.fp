@@ -15,7 +15,10 @@ in mediump mat4 var_view;
 #endif
 
 #ifdef EDITOR
+#include "/drp/shaders/pbr_engine_compat.glsl"
 #include "/defold-pbr/shaders/pbr_lighting.glsl"
+#undef world_to_view_point
+#undef world_to_view_dir
 #else
 #include "/drp/shaders/clustered_pbr.glsl"
 #endif

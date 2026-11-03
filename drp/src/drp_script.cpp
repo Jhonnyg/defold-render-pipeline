@@ -13,7 +13,7 @@
 namespace dmDRP
 {
     // The Lua registry borrows this pointer; the extension owns its lifetime.
-    static DRPContext* CheckContext(lua_State* L)
+    DRPContext* CheckContext(lua_State* L)
     {
         lua_getfield(L, LUA_REGISTRYINDEX, LIB_NAME ".context");
         DRPContext* context = (DRPContext*) lua_touserdata(L, -1);
@@ -327,6 +327,7 @@ namespace dmDRP
         RegisterNumberConstant(L, "MAX_DESCRIPTOR_SETS", MAX_DESCRIPTOR_SETS);
         RegisterNumberConstant(L, "MAX_BINDINGS_PER_SET", MAX_BINDINGS_PER_SET);
         lua_pop(L, 1);
+        InitializeShadowScript(L);
     }
 
     void FinalizeScript(lua_State* L)

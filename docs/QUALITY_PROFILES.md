@@ -124,3 +124,14 @@ fullscreen support or an unsupported floating-point target falls back to direct
 LDR while retaining the selected lighting profile. Strict capability mode requires an explicit positive
 `float_render_targets` capability; non-strict mode attempts allocation when it
 is unknown. The cluster heatmap always bypasses tone mapping.
+
+## Shadow settings
+
+Clustered profiles enable PCF (`balanced`), bounded PCSS (`high`), or bounded
+PCSS with 32 filter taps (`ultra`). Compatibility sets `shadows.quality="off"`.
+Only lights with a companion `shadow_caster.script` are selected. Fixed atlas
+capacity and per-frame view-update budgets may limit the requested light count;
+point lights consume six views and directional lights one per cascade.
+
+See [shadow settings and effective-budget diagnostics](../drp/features/shadows/README.md)
+for the complete settings table and explicit geometry-cache invalidation contract.

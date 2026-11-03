@@ -74,9 +74,12 @@ The `balanced`, `high`, and `ultra` profiles activate clustered lighting. On a
 cluster-capable device, switching to `compatibility` uses conventional asset-pbr
 material overrides for the same scene. These profiles also enable HDR scene
 rendering and tone mapping automatically when using `/drp/drp.render`; no HDR
-game object is required. Compatibility defaults to LDR. Shadow and other
-post-processing settings still describe future rendering intent. See
-[HDR setup and controls](drp/features/hdr/README.md).
+game object is required. Compatibility defaults to LDR with shadows disabled.
+Directional, point and spot lights opt into shadows with a companion script;
+PCF/PCSS filtering and explicit geometry-cache invalidation are available. Other
+post-processing settings still describe future intent. See
+[HDR setup](drp/features/hdr/README.md), [shadow setup and budgets](drp/features/shadows/README.md),
+and [the three-light shadow example](examples/shadows/README.md).
 
 Devices without compute/SSBO support need a **compatibility build**: Defold loads
 render and model shader resources before the Lua quality fallback can run.
@@ -126,8 +129,10 @@ validating these requirements.
 
 ## Future improvements / work
 
-- **Shadows:** The MVP1 covers soft directional, point and spot shadows,
-  automatic caching, POC migration, and the separate requirements for a 256-shadow-light target.
+- **Shadows:** Automatic model/animation/material dirty tracking, spatial cache
+  invalidation, adaptive tile sizes, and a separate 256-shadow-light capacity and
+  performance pass. Current caching requires explicit geometry invalidation;
+  current shader capacity remains 64 lights.
 
 - **Shared scene/project shader data:** Provide a common shader include and a
   shared uniform buffer for values such as exposure, fog, global tint, and

@@ -1,0 +1,61 @@
+name: "shadows"
+scale_along_z: 0
+embedded_instances {
+  id: "camera"
+  data: "components {\n"
+  "  id: \"vantage\"\n"
+  "  component: \"/vantage/vantage_component.script\"\n"
+  "  properties { id: \"first_person_movement_speed\" value: \"4.0\" type: PROPERTY_TYPE_NUMBER }\n"
+  "}\n"
+  "embedded_components {\n"
+  "  id: \"camera\"\n"
+  "  type: \"camera\"\n"
+  "  data: \"aspect_ratio: 1.0\\nfov: 0.7854\\nnear_z: 0.1\\nfar_z: 100.0\\nauto_aspect_ratio: 1\\n\"\n"
+  "}\n"
+  ""
+  position { y: 1.0 z: 4.0 }
+}
+instances {
+  id: "floor"
+  prototype: "/examples/clustered_renderer/clustered_cube.go"
+  position { y: -2.0 z: -10.0 }
+  scale3 { x: 10.0 y: 0.2 z: 14.0 }
+}
+instances {
+  id: "back_wall"
+  prototype: "/examples/clustered_renderer/clustered_cube.go"
+  position { y: 2.0 z: -22.0 }
+  scale3 { x: 10.0 y: 4.0 z: 0.2 }
+}
+instances {
+  id: "cube_near_left"
+  prototype: "/examples/clustered_renderer/clustered_cube.go"
+  position { x: -3.0 y: -0.5 z: -5.0 }
+  scale3 { x: 1.5 y: 1.5 z: 1.5 }
+}
+instances {
+  id: "cube_near_right"
+  prototype: "/examples/clustered_renderer/clustered_cube.go"
+  position { x: 3.0 y: -0.5 z: -7.0 }
+  scale3 { x: 1.5 y: 1.5 z: 1.5 }
+}
+instances {
+  id: "cube_middle"
+  prototype: "/examples/clustered_renderer/clustered_cube.go"
+  position { y: 0.0 z: -12.0 }
+  scale3 { x: 2.0 y: 2.0 z: 2.0 }
+}
+instances {
+  id: "cube_far_left"
+  prototype: "/examples/clustered_renderer/clustered_cube.go"
+  position { x: -4.0 y: 0.5 z: -18.0 }
+}
+instances {
+  id: "cube_far_right"
+  prototype: "/examples/clustered_renderer/clustered_cube.go"
+  position { x: 4.0 y: 0.5 z: -18.0 }
+}
+instances { id: "point" prototype: "/examples/shadows/point.go" position { x: -3 y: 3 z: -4 } }
+instances { id: "spot" prototype: "/examples/shadows/spot.go" position { x: 4 y: 5 z: 0 } rotation { x: -0.258819 y: 0 z: 0 w: 0.965926 } }
+instances { id: "sun" prototype: "/examples/shadows/directional.go" rotation { x: -0.353553 y: -0.353553 z: -0.146447 w: 0.853553 } }
+instances { id: "demo" prototype: "/examples/shadows/demo.go" }

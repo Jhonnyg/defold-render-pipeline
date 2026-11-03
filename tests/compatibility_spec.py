@@ -37,7 +37,7 @@ class CompatibilityExport(unittest.TestCase):
             # from both renderer paths and the unchanged model material slots.
             visited = set()
             def visit(path):
-                if path in visited or path.startswith("/defold-pbr/"):
+                if path in visited or path.startswith(("/defold-pbr/", "/builtins/")):
                     return
                 visited.add(path)
                 self.assertFalse(path.endswith((".compute", ".cp")), path)

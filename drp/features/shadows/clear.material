@@ -1,0 +1,5 @@
+name: "drp_shadow_clear"
+tags: "drp_shadow_clear"
+vertex_program: "/drp/features/shadows/clear.vp"
+fragment_program: "/drp/features/shadows/clear.fp"
+vertex_space: VERTEX_SPACE_LOCAL

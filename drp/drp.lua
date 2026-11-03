@@ -290,4 +290,12 @@ function M.remove_quality_listener(handle)
 	return pipeline.remove_quality_listener(handle)
 end
 
+---Invalidate manually cached shadow maps after geometry, animation, visibility, or alpha changes.
+---Shared across game-script and render-script Lua worlds; applied on the next shadow pass.
+function M.invalidate_shadows()
+	local native = require("drp.internal.native")
+	if native.is_shadows_available() then native.invalidate_shadows(); return true end
+	return nil, "native light API unavailable"
+end
+
 return M
