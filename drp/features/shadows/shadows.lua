@@ -219,23 +219,31 @@ local function write(data, offset, ...)
 end
 
 local function publish(data, light, items, tiles, splits, next_view, size, tile_size)
-	-- Headers use the current engine buffer index. Views are packed after all
-	-- headers, with column-major matrices matching the GLSL metadata layout.
+	-- DrpShadowLight (std430, 48 bytes). Header slots use the engine's current
+	-- compact light-buffer index; first_view indexes the separate view array.
 	local offset = light.index * config.header_floats
-	write(data, offset, light.type, next_view, #items, light.softness,
-		light.bias, light.normal_bias, state.config.cascade_blend, state.config.level,
+	-- light_type, first_view, view_count, softness (floats 0-3).
+	write(data, offset, light.type, next_view, #items, light.softness)
+	-- depth_bias, normal_bias, cascade_blend, filter_mode (floats 4-7).
+	write(data, offset + 4, light.bias, light.normal_bias, state.config.cascade_blend, state.config.level)
+	-- cascade_splits (floats 8-11), unused by point and spot lights.
+	write(data, offset + 8,
 		splits and splits[1] or 0, splits and splits[2] or 0, splits and splits[3] or 0, splits and splits[4] or 0)
 
 	for i, item in ipairs(items) do
+		-- DrpShadowView (std430, 96 bytes), after the fixed light-header array.
 		local base = config.light_capacity * config.header_floats + (next_view + i - 1) * config.view_floats
+		-- world_to_clip (floats 0-15): GLSL matrices are stored column-major.
 		for column = 0, 3 do
 			for row = 0, 3 do
 				data[base + column * 4 + row + 1] = item.matrix["m" .. row .. column]
 			end
 		end
 		local x, y = atlas.viewport(tiles[i], size, tile_size)
-		write(data, base + 16, (x + 1) / size, (y + 1) / size, (tile_size - 2) / size, 1 / size,
-			item.near, item.far, state.config.distance, 0)
+		-- atlas_offset.xy, atlas_scale, atlas_texel_size (floats 16-19).
+		write(data, base + 16, (x + 1) / size, (y + 1) / size, (tile_size - 2) / size, 1 / size)
+		-- near_plane, far_plane, shadow_distance (unused), padding (floats 20-23).
+		write(data, base + 20, item.near, item.far, state.config.distance, 0)
 	end
 	return next_view + #items
 end
@@ -412,6 +420,8 @@ function M.render(context)
 end
 
 function M.bind_scene(constants)
+	-- fs_drp_shadows: x enables sampling when this pass has valid resources and
+	-- metadata; yzw are reserved zeros. Per-light validity is stored in view_count.
 	constants.drp_shadow_settings = vmath.vector4(state.available and 1 or 0, 0, 0, 0)
 	native.bind_storage_buffer(state.buffer, 2, 6)
 	render.enable_texture("drp_shadow_local", state.available and state.local_target or state.fallback, graphics.BUFFER_TYPE_COLOR0_BIT)
