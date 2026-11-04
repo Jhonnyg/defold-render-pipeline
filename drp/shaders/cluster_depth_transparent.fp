@@ -1,19 +1,16 @@
 #version 430
 
-// Transparent objects contribute to tile depth ranges without updating the
-// opaque hardware depth buffer. This keeps every visible transparent layer's
-// cluster active while still allowing empty depth slices to be rejected.
-
-in mediump mat4 var_view;
-
-#define MAX_LIGHT_COUNT 8
-
-#include "/drp/shaders/cluster_depth_alpha.glsl"
+// Coverage and sidedness must match the visible pass. Unused glTF texture
+// samples are eliminated; depth only needs base alpha and material flags.
+#include "/drp/shaders/gltf_surface.glsl"
 #include "/drp/shaders/cluster_depth_range.glsl"
+
+out vec4 out_fragColor;
 
 void main()
 {
-    if (drp_cluster_base_alpha() <= 0.001)
+    PBRMaterial inputs = drp_sample_material(PBR_ALPHA_BLEND);
+    if (drp_should_discard(inputs))
     {
         discard;
     }

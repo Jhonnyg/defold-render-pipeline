@@ -13,6 +13,7 @@ return {
 			max_lights_per_cluster = clustered.max_lights_per_cluster,
 		},
 		shadows = {
+			max_updates_per_frame = 64,
 			quality = "pcss",
 			directional_cascades = 4,
 			max_shadowed_local_lights = 12,

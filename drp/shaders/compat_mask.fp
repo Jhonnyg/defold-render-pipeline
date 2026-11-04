@@ -1,25 +1,29 @@
 #version 140
 
-// Conventional asset-pbr alpha-mask variant used as a render-time override
-// when clustered-authored content runs through the compatibility profile.
-// It preserves glTF cutoff coverage without requiring cluster SSBOs.
-
-in mediump mat4 var_view;
-
 #define MAX_LIGHT_COUNT 8
-#include "/defold-pbr/shaders/pbr_lighting.glsl"
 
+#include "/drp/shaders/gltf_surface.glsl"
+#include "/builtins/materials/gltf_lighting.glsl"
 #include "/drp/shaders/output.glsl"
+
+out vec4 out_fragColor;
 
 void main()
 {
-    PBRParams params = get_pbr_params();
-    MaterialInfo material = get_material_info(params);
-    // Match the clustered color and depth variants at cutout boundaries.
-    if (material.baseColor.a < params.alphaCutoff)
+    PBRMaterial inputs = drp_sample_material(PBR_ALPHA_MASK);
+    // Sample normal maps before discard to preserve derivatives at cutout edges.
+    PBRSurface surface = pbr_sample_surface(inputs, var_texcoord0);
+    if (drp_should_discard(inputs))
     {
         discard;
     }
-    PBRLightData data = calculate_pbr_light_data(params, material, var_position.xyz);
-    out_fragColor = vec4(drp_output(composite_pbr_light_data(data)), 1.0);
+    PBRLighting lighting = pbr_create_lighting();
+    if (!inputs.unlit)
+    {
+        MaterialInfo material = pbr_create_material_info(inputs);
+        lighting.direct = pbr_evaluate_direct_lighting(material, surface, var_view);
+        lighting.indirect = pbr_evaluate_ambient_lighting(material, ambient_light());
+    }
+    vec3 color = pbr_compose_lighting(inputs, lighting, inputs.occlusion, inputs.occlusion);
+    out_fragColor = vec4(drp_output(color), pbr_get_alpha(inputs));
 }

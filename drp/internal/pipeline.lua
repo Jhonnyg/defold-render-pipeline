@@ -55,6 +55,8 @@ local function snapshot_state()
 	}
 end
 
+local scene_camera = require("drp.internal.camera")
+
 local function feature_context(dt, transition)
 	return {
 		frame = state.frame,
@@ -64,6 +66,7 @@ local function feature_context(dt, transition)
 		capabilities = state.capabilities,
 		viewport = state.viewport,
 		transition = transition or state.frame_transition,
+		camera = scene_camera.snapshot(),
 	}
 end
 
@@ -343,7 +346,9 @@ function M.clear_runtime_overrides(path)
 		node[keys[#keys]] = nil
 		-- Empty override maps must not mask a scalar default in the profile.
 		for index = #parents, 1, -1 do
-			if next(node) ~= nil then break end
+			if next(node) ~= nil then
+				break
+			end
 			local parent = parents[index]
 			parent.node[parent.key] = nil
 			node = parent.node

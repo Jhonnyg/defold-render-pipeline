@@ -62,6 +62,14 @@ local quality = require("drp.internal.quality")
 ---@field color_format string Scene color format.
 ---@field color_bytes integer Scene color allocation, excluding depth.
 
+---@class drp.ShadowDiagnostics
+---@field initialized boolean Whether the shadows feature is initialized.
+---@field enabled boolean Whether active settings request shadows.
+---@field available boolean Always false until shadow rendering is implemented.
+---@field effective_quality string Always "off" in the scaffold.
+---@field reason string Why shadow rendering is inactive.
+---@field settings table Copy of requested shadow settings, not effective GPU budgets.
+
 ---@class drp.QualityTransition
 ---@field frame integer Frame on which the transition became active.
 ---@field dt number Delta time passed to `drp.begin_frame()`.
@@ -182,8 +190,9 @@ end
 ---The clustered record includes grid dimensions, effective capacities, buffer
 ---sizes, and the conservative assignment workload. Exact occupancy and
 ---overflow remain GPU-resident and are visualized by the clustered heatmap.
----@param name string Feature name: `"clustered"` or `"hdr"`.
----@return drp.ClusteredDiagnostics|drp.HDRDiagnostics|nil diagnostics
+---The shadows scaffold reports the active request but remains unavailable.
+---@param name string Feature name: `"clustered"`, `"hdr"`, or `"shadows"`.
+---@return drp.ClusteredDiagnostics|drp.HDRDiagnostics|drp.ShadowDiagnostics|nil diagnostics
 ---@return string|nil error
 function M.get_feature_diagnostics(name)
 	return pipeline.get_feature_diagnostics(name)
@@ -279,6 +288,17 @@ end
 ---@return boolean removed Whether a listener existed and was removed.
 function M.remove_quality_listener(handle)
 	return pipeline.remove_quality_listener(handle)
+end
+
+---Invalidate manually cached shadow maps after geometry, animation, visibility, or alpha changes.
+---Shared across game-script and render-script Lua worlds; applied on the next shadow pass.
+function M.invalidate_shadows()
+	local native = require("drp.internal.native")
+	if native.is_shadows_available() then
+		native.invalidate_shadows()
+		return true
+	end
+	return nil, "native light API unavailable"
 end
 
 return M

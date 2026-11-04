@@ -1,48 +1,48 @@
 #version 430
 
 #include "/drp/shaders/clustered_config.glsl"
-
-// Clustered PBR variant for alpha-masked geometry. It performs the material's
-// cutoff test before lighting so discarded texels contribute neither color nor
-// heatmap output. The separate masked depth pass uses the same cutoff semantics.
-// The editor branch uses conventional PBR because it cannot run cluster compute.
-
-in mediump mat4 var_view;
-
 #ifdef EDITOR
 #define MAX_LIGHT_COUNT 8
 #else
 #define MAX_LIGHT_COUNT DRP_CLUSTER_LIGHT_CAPACITY
 #endif
 
-#ifdef EDITOR
-#include "/defold-pbr/shaders/pbr_lighting.glsl"
-#else
+#include "/drp/shaders/gltf_surface.glsl"
+#include "/builtins/materials/gltf_lighting.glsl"
+#ifndef EDITOR
 #include "/drp/shaders/clustered_pbr.glsl"
 #endif
-
 #include "/drp/shaders/output.glsl"
+
+out vec4 out_fragColor;
 
 void main()
 {
-    PBRParams params = get_pbr_params();
-    MaterialInfo material = get_material_info(params);
-    // Keep this test identical to the model's material cutoff semantics.
-    if (material.baseColor.a < params.alphaCutoff)
+    PBRMaterial inputs = drp_sample_material(PBR_ALPHA_MASK);
+    // Sample normal maps before discard to preserve derivatives at cutout edges.
+    PBRSurface surface = pbr_sample_surface(inputs, var_texcoord0);
+    if (drp_should_discard(inputs))
     {
         discard;
     }
-#ifdef EDITOR
-    PBRLightData data = calculate_pbr_light_data(params, material, var_position.xyz);
-    out_fragColor = vec4(drp_output(composite_pbr_light_data(data)), 1.0);
-#else
+#ifndef EDITOR
     if (cluster_debug.x > 0.5)
     {
-        out_fragColor = drp_cluster_debug_color(var_position.xyz);
+        out_fragColor = drp_cluster_debug_color(surface.position);
         return;
     }
-    PBRLightData data = calculate_clustered_pbr_light_data(params, material,
-        var_position.xyz);
-    out_fragColor = vec4(drp_output(composite_pbr_light_data(data)), 1.0);
 #endif
+    PBRLighting lighting = pbr_create_lighting();
+    if (!inputs.unlit)
+    {
+        MaterialInfo material = pbr_create_material_info(inputs);
+#ifdef EDITOR
+        lighting.direct = pbr_evaluate_direct_lighting(material, surface, var_view);
+#else
+        lighting.direct = drp_evaluate_clustered_lighting(material, surface);
+#endif
+        lighting.indirect = pbr_evaluate_ambient_lighting(material, ambient_light());
+    }
+    vec3 color = pbr_compose_lighting(inputs, lighting, inputs.occlusion, inputs.occlusion);
+    out_fragColor = vec4(drp_output(color), pbr_get_alpha(inputs));
 }

@@ -6,7 +6,7 @@ PBR materials, shadows, HDR, ambient occlusion, depth of field, and rendering
 diagnostics.
 
 The current milestone implements the configuration foundation, native
-storage-buffer bridge, Forward+ light assignment, and asset-pbr-based clustered
+storage-buffer bridge, Forward+ light assignment, and engine glTF-based clustered
 shading for opaque, alpha-masked, and transparent models. The cluster grid and
 per-cluster light lists are extension-owned SSBOs. Punctual light data remains
 in Defold's engine-owned `LightBuffer` UBO and is consumed directly by both the
@@ -33,11 +33,13 @@ Examples, tests, and development tools stay outside the library. Existing
 `require("drp.drp")` imports and `/drp/` resource paths also work when DRP is
 loaded as a project dependency.
 
-Consuming projects must also add the
-[asset-pbr 0.1.0 dependency](https://github.com/defold/asset-pbr/archive/refs/tags/0.1.0.zip)
-and apply the [project configuration](#project-configuration) below. Defold does
-not inherit a library's dependencies or project settings. Vantage is only
-needed for this repository's examples.
+Consuming projects must use an engine/editor/Bob build containing the modular
+`/builtins/materials/gltf_*.glsl` shaders and apply the
+[project configuration](#project-configuration) below. DRP uses those built-in
+glTF shaders directly; no asset-pbr dependency is needed. Defold does not inherit
+a library's project settings. Vantage is only needed for this repository's examples.
+See [shader integration](drp/shaders/README.md) for the engine/DRP boundary and
+material behavior when upgrading.
 
 ## Current API
 
@@ -71,12 +73,15 @@ render script.
 - `ultra`: experimental maximum-quality target.
 
 The `balanced`, `high`, and `ultra` profiles activate clustered lighting. On a
-cluster-capable device, switching to `compatibility` uses conventional asset-pbr
+cluster-capable device, switching to `compatibility` uses conventional glTF
 material overrides for the same scene. These profiles also enable HDR scene
 rendering and tone mapping automatically when using `/drp/drp.render`; no HDR
-game object is required. Compatibility defaults to LDR. Shadow and other
-post-processing settings still describe future rendering intent. See
-[HDR setup and controls](drp/features/hdr/README.md).
+game object is required. Compatibility defaults to LDR with shadows disabled.
+Directional, point and spot lights opt into shadows with a companion script;
+PCF/PCSS filtering and explicit geometry-cache invalidation are available. Other
+post-processing settings still describe future intent. See
+[HDR setup](drp/features/hdr/README.md), [shadow setup and budgets](drp/features/shadows/README.md),
+and [the three-light shadow example](examples/shadows/README.md).
 
 Devices without compute/SSBO support need a **compatibility build**: Defold loads
 render and model shader resources before the Lua quality fallback can run.
@@ -95,13 +100,6 @@ Read [the quality-profile documentation](docs/QUALITY_PROFILES.md) and
 [public API reference](docs/API.md) for details. Native bridge requirements and
 its internal Lua surface are documented in
 [the native bridge reference](docs/NATIVE_BRIDGE.md).
-
-> **TODO — native glTF surface modes:** Automatic opaque, alpha-mask, and
-> transparent classification should ultimately be provided by Defold's import,
-> material, and default PBR systems rather than implemented independently by
-> DRP. The proposed engine/extension boundary is recorded in
-> [Native glTF PBR Surface Modes](docs/GLTF_PBR_SURFACE_MODES.md). Until then,
-> DRP model material slots use explicit clustered surface variants.
 
 The runnable [Sponza clustered-shading example](examples/README.md) is the
 default bootstrap collection. Smaller cluster-assignment and quality API
@@ -131,22 +129,12 @@ workgroup, shared-memory, or uniform-buffer limits cause fallback. Strict mode
 also rejects unknown required limits. Runtime settings are applied before
 validating these requirements.
 
-## Status
-
-The configuration contracts, native SSBO bridge, clustered assignment,
-asset-pbr-based clustered shading, transparent ordering, and runtime
-compatibility overrides are active. Automatically assigning a clustered
-material from imported material metadata still needs an editor/build-pipeline
-integration. HDR scene rendering, manual exposure, and ACES-style tone mapping
-are implemented as a separate feature. Shadows and the remaining post effects
-remain future work. See
-[clustered lighting](docs/CLUSTERED_LIGHTING.md) for the current pass and
-resource contract. The feature is functionally complete for its current MVP1
-scope; its remaining validation and pre-PR work is tracked in the
-[clustered feature README](drp/features/clustered/README.md). Regression checks
-and their commands are documented in [tests/README.md](tests/README.md).
-
 ## Future improvements / work
+
+- **Shadows:** Automatic model/animation/material dirty tracking, spatial cache
+  invalidation, adaptive tile sizes, and a separate 256-shadow-light capacity and
+  performance pass. Current caching requires explicit geometry invalidation;
+  current shader capacity remains 64 lights.
 
 - **Shared scene/project shader data:** Provide a common shader include and a
   shared uniform buffer for values such as exposure, fog, global tint, and

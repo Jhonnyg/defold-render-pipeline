@@ -196,7 +196,8 @@ capabilities.
 ### `drp.get_feature_diagnostics(name)`
 
 Returns a defensive snapshot of CPU-visible diagnostics for a feature. The
-currently supported name is `"clustered"`. Its record contains the grid,
+currently supported names are `"clustered"`, `"hdr"`, and `"shadows"`. The
+clustered record contains the grid,
 effective capacities, per-buffer byte sizes, total storage use, whether device
 limits clamped the profile, and a conservative maximum assignment workload.
 
@@ -208,6 +209,30 @@ print(cluster.cluster_count, cluster.storage_bytes)
 Exact occupancy, dropped-light, and overflowing-cluster counters are produced
 on the GPU. Until Defold exposes asynchronous storage-buffer readback, inspect
 those values through `lighting.cluster_debug`; magenta identifies overflow.
+
+The shadows feature reports the active request and the current frame's work:
+
+```lua
+local shadows = drp.get_feature_diagnostics("shadows")
+print(shadows.available, shadows.reason, shadows.effective_quality)
+print(shadows.shadowed_lights, shadows.updated_views, shadows.cached_views)
+print(shadows.deferred_views, shadows.dropped_lights)
+```
+
+Settings follow profile/runtime-override frame boundaries. `enabled` reports the
+request; `available` confirms this frame's metadata is ready. See
+[shadow setup, caching and budgets](../drp/features/shadows/README.md).
+
+### `drp.invalidate_shadows()`
+
+Invalidates all manually cached shadow maps after geometry creation, deletion,
+movement, animation, alpha coverage or visibility changes. Returns `true`, or
+`nil, error` when the native light bridge is unavailable. This updates a shared
+native revision and works across separate game-script/render-script Lua worlds.
+
+The companion `shadow_caster.script` defaults to `cache=false`, which redraws
+selected shadows for dynamic scenes. With `cache=true`, light/camera projection
+changes are detected automatically, but geometry changes require this call.
 
 ## HDR rendering
 

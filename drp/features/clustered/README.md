@@ -22,7 +22,7 @@ The complete pass and resource contract is documented in
 - Uniform per-cluster capacity reduction when device buffer limits require it.
 - Contribution-ranked selection when a cluster exceeds its light-list limit.
 - Conservative visible tile depth ranges for rejecting empty Z slices.
-- asset-pbr metallic-roughness shading for opaque and alpha-masked geometry.
+- Built-in glTF metallic-roughness shading for opaque and alpha-masked geometry.
 - Basic transparent clustered shading with depth writes disabled and explicit
   back-to-front render-entry sorting.
 - Conventional compatibility rendering without duplicate scenes.
@@ -37,21 +37,10 @@ The complete pass and resource contract is documented in
 
 ### Automated coverage
 
-- `tests/clustered_spec.lua` checks 4K dispatch dimensions, exact device-limit
-  boundaries, strict capability fallback, projection invalidation, capacity
-  reduction, 60 resize/profile transitions, and buffer lifetime with a mocked
-  render runtime.
-- `tests/cluster_geometry_spec.cpp` compiles the actual GLSL geometry helpers
-  and checks perspective/orthographic rays plus 20,000 conservative spotlight
-  intersection cases.
-- `tests/compatibility_spec.py` checks source preservation and walks the
-  exported material/render dependency graph to reject compute/SSBO resources.
-- Add deterministic GPU smoke scenes for shading, masks, transparency, empty
-  clusters, overflow, animated lights, and compatibility overrides. CPU tests
-  do not replace backend image comparisons or GPU synchronization validation.
-
-Required binding, workgroup, shared-memory, and uniform-buffer limits now
-participate in quality resolution. See [the test commands](../../../tests/README.md).
+Internal development checks cover dispatch limits, capability fallback,
+projection changes, light assignment, compatibility exports, and resource
+lifetime. They are maintained locally and are not part of the library.
+Backend image comparisons and GPU synchronization checks remain separate.
 
 ### Runtime stress testing
 

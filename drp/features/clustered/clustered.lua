@@ -1,6 +1,8 @@
 local native = require("drp.internal.native")
 local resources = require("drp.internal.resources")
 local hdr = require("drp.features.hdr.hdr")
+local shadows = require("drp.features.shadows.shadows")
+local scene_camera = require("drp.internal.camera")
 local config = require("drp.features.clustered.config")
 local requirements = require("drp.features.clustered.requirements")
 
@@ -11,7 +13,7 @@ local MAX_SHADER_LIGHTS = config.shader_light_capacity
 local MAX_LIGHTS_PER_CLUSTER = config.max_lights_per_cluster
 -- Material textures and uniform blocks occupy descriptor set 1. Keep all
 -- extension-owned storage buffers in set 2 so their explicit bindings cannot
--- collide with resources contributed by asset-pbr or another material include.
+-- collide with resources contributed by built-in glTF or another material include.
 local STORAGE_SET = 2
 
 local BUFFER_DESCRIPTORS = {
@@ -49,19 +51,6 @@ local state = {
 
 local function ceil_div(value, divisor)
 	return math.floor((value + divisor - 1) / divisor)
-end
-
-local function active_camera()
-	if not _G.camera then
-		return nil
-	end
-	local cameras = camera.get_cameras()
-	for index = #cameras, 1, -1 do
-		if camera.get_enabled(cameras[index]) then
-			return cameras[index]
-		end
-	end
-	return nil
 end
 
 local function clustered_requested(context)
@@ -377,7 +366,8 @@ local function render_depth_ranges(constants)
 	render.set_depth_func(graphics.COMPARE_FUNC_LEQUAL)
 	render.set_depth_mask(false)
 
-	render.enable_state(graphics.STATE_CULL_FACE)
+	-- Let the glTF material decide sidedness in all surface passes.
+	render.disable_state(graphics.STATE_CULL_FACE)
 	render.enable_material("drp_cluster_depth_opaque")
 	render.draw(state.opaque, {
 		constants = constants,
@@ -403,23 +393,28 @@ local function render_depth_ranges(constants)
 end
 
 local function draw_models(constants)
-	-- The model predicate is the conventional opaque asset-pbr path. Its
+	-- The model predicate is the conventional opaque built-in glTF path. Its
 	-- default shader converts to display color, so use our linear-capable
 	-- PBR override while rendering into HDR.
 	local linear = constants.drp_output_settings.x > 0.5
-	if linear then render.enable_material("drp_compat_opaque") end
+	if linear then
+		render.enable_material("drp_compat_opaque")
+	end
 	render.draw(state.model, { constants = constants, sort_order = render.SORT_FRONT_TO_BACK })
-	if linear then render.disable_material() end
+	if linear then
+		render.disable_material()
+	end
 end
 
 local function draw_clustered(constants)
 	bind_cluster_buffers()
+	shadows.bind_scene(constants)
 	-- The range-recording pass does not populate hardware depth. Render opaque
 	-- and masked surfaces with conventional depth writes so visibility is stable
 	-- across backends and independent of SSBO fragment-side effects.
 	render.set_depth_func(graphics.COMPARE_FUNC_LEQUAL)
 	render.set_depth_mask(true)
-	render.enable_state(graphics.STATE_CULL_FACE)
+	render.disable_state(graphics.STATE_CULL_FACE)
 	render.draw(state.opaque, {
 		constants = constants,
 		sort_order = render.SORT_FRONT_TO_BACK,
@@ -430,7 +425,7 @@ local function draw_clustered(constants)
 		sort_order = render.SORT_FRONT_TO_BACK,
 	})
 
-	-- Conventional asset-pbr/model materials are the compatibility path. Keep
+	-- Conventional built-in glTF/model materials are the compatibility path. Keep
 	-- their regular depth behavior because they did not participate in DRP's
 	-- depth-range pass.
 	render.set_depth_func(graphics.COMPARE_FUNC_LEQUAL)
@@ -461,6 +456,7 @@ local function draw_compatibility()
 	-- profiles while leaving its textures and per-model material constants intact.
 	render.enable_state(graphics.STATE_CULL_FACE)
 	draw_models(constants)
+	render.disable_state(graphics.STATE_CULL_FACE)
 	render.enable_material("drp_compat_opaque")
 	render.draw(state.opaque, { constants = constants, sort_order = render.SORT_FRONT_TO_BACK })
 	render.disable_material()
@@ -557,24 +553,25 @@ function M.render(context)
 	if not state.render_available then
 		return
 	end
-	local camera_component = active_camera()
+	local snapshot = context.camera or scene_camera.snapshot()
+	local camera_component = snapshot and snapshot.component
 	if not camera_component then
 		return
 	end
 
 	-- Logarithmic slices require positive view depths. Orthographic cameras
 	-- whose clip range crosses the eye use forward shading for this frame.
-	local camera_near = camera.get_near_z(camera_component)
-	local camera_far = camera.get_far_z(camera_component)
-	if not state.enabled or not state.available or camera_near <= 0 or camera_far <= camera_near then
+	local camera_near = snapshot.near
+	local camera_far = snapshot.far
+	if not state.enabled or not state.available or camera_near <= 0 or camera_far <= camera_near or not shadows.prepare_scene() then
 		begin_scene(camera_component)
 		draw_compatibility()
 		end_scene()
 		return
 	end
 
-	local view = camera.get_view(camera_component)
-	local projection = camera.get_projection(camera_component)
+	local view = snapshot.view
+	local projection = snapshot.projection
 	local near_z = math.max(camera_near, 0.0001)
 	local far_z = math.max(camera_far, near_z + 0.0001)
 	update_projection(projection, near_z, far_z)
@@ -585,6 +582,7 @@ function M.render(context)
 	render_depth_ranges(common)
 	build_clusters(build, assign)
 	draw_clustered(common)
+	shadows.unbind_scene()
 	end_scene()
 end
 

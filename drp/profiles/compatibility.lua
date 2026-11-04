@@ -13,7 +13,7 @@ return {
 			max_lights_per_object = 8,
 		},
 		shadows = {
-			quality = "hard",
+			quality = "off",
 			directional_cascades = 1,
 			max_shadowed_local_lights = 1,
 		},

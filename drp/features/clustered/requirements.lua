@@ -1,4 +1,5 @@
 local config = require("drp.features.clustered.config")
+local shadow_config = require("drp.features.shadows.config")
 
 local M = {}
 
@@ -6,6 +7,9 @@ local M = {}
 -- insufficient limit rejects the profile even when strict mode is disabled.
 local required_limits = {
 	{ "max_storage_buffers_per_stage", 6 },
+	{ "max_textures_per_stage", 7 },
+	{ "max_samplers_per_stage", 7 },
+	{ "max_storage_buffer_range", shadow_config.buffer_floats * 4 },
 	{ "max_compute_workgroup_size_x", 64 },
 	{ "max_compute_workgroup_size_y", 4 },
 	{ "max_compute_workgroup_size_z", 4 },

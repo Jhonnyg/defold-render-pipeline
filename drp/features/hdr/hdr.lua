@@ -85,7 +85,9 @@ local function configure(context)
 		release_target()
 		return
 	end
-	if context.transition then state.failure = nil end
+	if context.transition then
+		state.failure = nil
+	end
 	if state.failure and state.failure.width == width and state.failure.height == height then
 		state.reason = state.failure.reason
 		return

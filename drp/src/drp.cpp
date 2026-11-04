@@ -20,7 +20,9 @@ static dmExtension::Result AppInitialize(dmExtension::AppParams* params)
 
     dmDRP::DRPContext* context = new (std::nothrow) dmDRP::DRPContext;
     if (!context)
+    {
         return dmExtension::RESULT_INIT_ERROR;
+    }
     context->m_ContextRegistry = registry;
 
     if (ContextRegistrySet(registry, DRP_CONTEXT_NAME, context) != 0)
@@ -35,7 +37,9 @@ static dmExtension::Result Initialize(dmExtension::Params* params)
 {
     HContextRegistry registry = ExtensionParamsGetContextRegistry(params);
     if (!registry)
+    {
         return dmExtension::RESULT_INIT_ERROR;
+    }
 
     dmDRP::DRPContext* context = (dmDRP::DRPContext*) ContextRegistryGet(registry, DRP_CONTEXT_NAME);
     dmGraphics::HContext graphics_context = (dmGraphics::HContext) ContextRegistryGet(registry, GRAPHICS_CONTEXT_NAME);
@@ -55,11 +59,15 @@ static dmExtension::Result Finalize(dmExtension::Params* params)
 {
     HContextRegistry registry = ExtensionParamsGetContextRegistry(params);
     if (!registry)
+    {
         return dmExtension::RESULT_OK;
+    }
 
     lua_State* L = (lua_State*) ContextRegistryGet(registry, LUA_CONTEXT_NAME);
     if (L)
+    {
         dmDRP::FinalizeScript(L);
+    }
 
     dmDRP::DRPContext* context = (dmDRP::DRPContext*) ContextRegistryGet(registry, DRP_CONTEXT_NAME);
     dmDRP::FinalizeGraphics(context);
@@ -69,7 +77,9 @@ static dmExtension::Result Finalize(dmExtension::Params* params)
 static void OnEvent(dmExtension::Params* params, const dmExtension::Event* event)
 {
     if (event->m_Event != EXTENSION_EVENT_ID_ENGINE_DELETE)
+    {
         return;
+    }
 
     HContextRegistry registry = ExtensionParamsGetContextRegistry(params);
     dmDRP::DRPContext* context = registry
@@ -83,7 +93,9 @@ static dmExtension::Result AppFinalize(dmExtension::AppParams* params)
 {
     HContextRegistry registry = ExtensionAppParamsGetContextRegistry(params);
     if (!registry)
+    {
         return dmExtension::RESULT_OK;
+    }
 
     dmDRP::DRPContext* context = (dmDRP::DRPContext*) ContextRegistryGet(registry, DRP_CONTEXT_NAME);
     ContextRegistrySet(registry, DRP_CONTEXT_NAME, 0);

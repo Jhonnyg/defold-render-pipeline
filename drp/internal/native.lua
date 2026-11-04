@@ -142,4 +142,18 @@ function M.reset()
 	return true
 end
 
+-- Shadow registrations are shared through DRPContext, including separate script/render Lua worlds.
+function M.is_shadows_available()
+	local backend = get_backend()
+	return backend ~= nil and type(backend.get_shadow_lights) == "function"
+		and type(backend.pack_floats) == "function" and M.is_fullscreen_available()
+end
+
+for _, name in ipairs({ "register_shadow_light", "update_shadow_light", "unregister_shadow_light",
+	"get_shadow_lights", "invalidate_shadows", "pack_floats" }) do
+	M[name] = function(...)
+		return require_backend()[name](...)
+	end
+end
+
 return M

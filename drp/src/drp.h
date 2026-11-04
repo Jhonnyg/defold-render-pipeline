@@ -84,6 +84,19 @@ namespace dmDRP
 {
     struct FullscreenMaterial;
 
+    /** Registration owns settings, never an engine component or its transient buffer index. */
+    struct ShadowLight
+    {
+        uint32_t                 m_Id;
+        dmRender::HLightInstance m_Light;
+        float                    m_Priority;
+        float                    m_Bias;
+        float                    m_NormalBias;
+        float                    m_Softness;
+        bool                     m_Enabled;
+        bool                     m_Cache;
+    };
+
     enum
     {
         NATIVE_API_VERSION   = 1,  ///< Lua API_VERSION and capabilities.native_bridge_version.
@@ -115,26 +128,31 @@ namespace dmDRP
      */
     struct DRPContext
     {
-        dmGraphics::HContext         m_GraphicsContext;       ///< Borrowed; 0 before initialization and after finalization.
-        dmArray<StorageBufferRecord> m_StorageBuffers;        ///< Owned allocations; released by FinalizeGraphics().
-        StorageBufferId              m_NextStorageBufferId;   ///< Next ID candidate; preserved by buffer reset.
-        HContextRegistry             m_ContextRegistry;       ///< Borrowed for lazy lookup after engine initialization.
-        dmRender::HRenderContext     m_RenderContext;         ///< Borrowed; unavailable during extension Initialize.
-        HResourceFactory             m_ResourceFactory;       ///< Borrowed; used to retain fullscreen materials.
-        dmGraphics::HVertexBuffer    m_FullscreenVertexBuffer; ///< Shared owned fullscreen triangle.
+        dmGraphics::HContext           m_GraphicsContext;             ///< Borrowed; 0 before initialization and after finalization.
+        dmArray<StorageBufferRecord>   m_StorageBuffers;              ///< Owned allocations; released by FinalizeGraphics().
+        StorageBufferId                m_NextStorageBufferId;         ///< Next ID candidate; preserved by buffer reset.
+        HContextRegistry               m_ContextRegistry;             ///< Borrowed for lazy lookup after engine initialization.
+        dmRender::HRenderContext       m_RenderContext;               ///< Borrowed; unavailable during extension Initialize.
+        HResourceFactory               m_ResourceFactory;             ///< Borrowed; used to retain fullscreen materials.
+        dmGraphics::HVertexBuffer      m_FullscreenVertexBuffer;      ///< Shared owned fullscreen triangle.
         dmGraphics::HVertexDeclaration m_FullscreenVertexDeclaration; ///< Owned position/texcoord0 layout.
-        dmArray<FullscreenMaterial*> m_FullscreenMaterials;   ///< Owned stable records and retained material references.
-        bool                         m_FullscreenFinalized;   ///< Prevents recreation during scene/script teardown.
+        dmArray<FullscreenMaterial*>   m_FullscreenMaterials;         ///< Owned stable records and retained material references.
+        dmArray<ShadowLight>           m_ShadowLights;                ///< Versioned engine handles; removed by companion-script final().
+        uint32_t                       m_NextShadowLightId;           ///< Monotonic; never reused during this application.
+        uint32_t                       m_ShadowSceneRevision;         ///< Explicit geometry invalidation shared across Lua worlds.
+        bool                           m_FullscreenFinalized;         ///< Prevents recreation during scene/script teardown.
 
         DRPContext()
-        : m_GraphicsContext(0)
-        , m_NextStorageBufferId(1)
-        , m_ContextRegistry(0)
-        , m_RenderContext(0)
-        , m_ResourceFactory(0)
-        , m_FullscreenVertexBuffer(0)
-        , m_FullscreenVertexDeclaration(0)
-        , m_FullscreenFinalized(false)
+            : m_GraphicsContext(0)
+            , m_NextStorageBufferId(1)
+            , m_ContextRegistry(0)
+            , m_RenderContext(0)
+            , m_ResourceFactory(0)
+            , m_FullscreenVertexBuffer(0)
+            , m_FullscreenVertexDeclaration(0)
+            , m_NextShadowLightId(1)
+            , m_ShadowSceneRevision(1)
+            , m_FullscreenFinalized(false)
         {
         }
 
@@ -163,6 +181,12 @@ namespace dmDRP
      * is preserved; no GPU resources are created or SSBO support checks made.
      */
     void InitializeScript(lua_State* L, DRPContext* context);
+
+    /** Borrow this Lua state's DRP context or raise a Lua error after detachment. */
+    DRPContext* CheckContext(lua_State* L);
+
+    /** Add registration/snapshot/packing bindings to drp_native; preserves stack depth. */
+    void InitializeShadowScript(lua_State* L);
 
     /**
      * Remove this Lua state's borrowed context without deleting native state.
