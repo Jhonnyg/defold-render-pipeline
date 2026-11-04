@@ -1,9 +1,15 @@
 #version 140
-in mediump mat4 var_view;
-#define MAX_LIGHT_COUNT 8
-#include "/drp/shaders/cluster_depth_alpha.glsl"
+
+#include "/drp/shaders/gltf_surface.glsl"
+
+out vec4 out_fragColor;
+
 void main()
 {
-    if (drp_cluster_base_alpha() < pbrAlphaCutoffAndDoubleSidedAndIsUnlit.x) discard;
+    PBRMaterial inputs = drp_sample_material(PBR_ALPHA_MASK);
+    if (drp_should_discard(inputs))
+    {
+        discard;
+    }
     out_fragColor = vec4(gl_FragCoord.z);
 }

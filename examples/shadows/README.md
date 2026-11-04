@@ -5,6 +5,11 @@ keep `/drp/drp.render` as the renderer. Use an engine containing DRP and the new
 light dmSDK API. The scene has directional, point and spot shadow lights plus a
 moving cube. The camera uses the same Vantage controls as the clustered example.
 
+The collection embeds all game objects, model components, camera and light
+resources. `demo.script` remains a referenced script component because Defold
+does not support embedded scripts. Shared DRP materials and built-in meshes
+remain resource references.
+
 Each light GO has a `shadow_caster.script` next to `#light`; the models need no
 extra components. Try changing the caster `softness`, `bias`, `normal_bias`, and
 `priority` properties or switching the `balanced`/`high` profiles.

@@ -8,13 +8,17 @@ namespace dmDRP
     static StorageBufferRecord* FindStorageBuffer(DRPContext* drp_context, StorageBufferId buffer_id, uint32_t* index_out)
     {
         if (!drp_context)
+        {
             return 0;
+        }
         for (uint32_t i = 0; i < drp_context->m_StorageBuffers.Size(); ++i)
         {
             if (drp_context->m_StorageBuffers[i].m_Id == buffer_id)
             {
                 if (index_out)
+                {
                     *index_out = i;
+                }
                 return &drp_context->m_StorageBuffers[i];
             }
         }
@@ -28,7 +32,9 @@ namespace dmDRP
         {
             buffer_id = drp_context->m_NextStorageBufferId++;
             while (FindStorageBuffer(drp_context, buffer_id, 0))
+            {
                 buffer_id = drp_context->m_NextStorageBufferId++;
+            }
         }
         return buffer_id;
     }
@@ -36,13 +42,17 @@ namespace dmDRP
     void InitializeGraphics(DRPContext* drp_context, dmGraphics::HContext graphics_context)
     {
         if (drp_context)
+        {
             drp_context->m_GraphicsContext = graphics_context;
+        }
     }
 
     void FinalizeGraphics(DRPContext* drp_context)
     {
         if (!drp_context)
+        {
             return;
+        }
         DeleteAllStorageBuffers(drp_context);
         drp_context->m_GraphicsContext = 0;
     }
@@ -56,16 +66,16 @@ namespace dmDRP
     {
         switch (family)
         {
-            case dmGraphics::ADAPTER_FAMILY_NULL:     return "null";
-            case dmGraphics::ADAPTER_FAMILY_OPENGL:   return "opengl";
-            case dmGraphics::ADAPTER_FAMILY_OPENGLES: return "opengles";
-            case dmGraphics::ADAPTER_FAMILY_VULKAN:   return "vulkan";
-            case dmGraphics::ADAPTER_FAMILY_VENDOR:   return "vendor";
-            case dmGraphics::ADAPTER_FAMILY_WEBGPU:   return "webgpu";
-            case dmGraphics::ADAPTER_FAMILY_DIRECTX:  return "directx";
-            case dmGraphics::ADAPTER_FAMILY_METAL:    return "metal";
-            case dmGraphics::ADAPTER_FAMILY_NONE:
-            default:                                  return "none";
+        case dmGraphics::ADAPTER_FAMILY_NULL:     return "null";
+        case dmGraphics::ADAPTER_FAMILY_OPENGL:   return "opengl";
+        case dmGraphics::ADAPTER_FAMILY_OPENGLES: return "opengles";
+        case dmGraphics::ADAPTER_FAMILY_VULKAN:   return "vulkan";
+        case dmGraphics::ADAPTER_FAMILY_VENDOR:   return "vendor";
+        case dmGraphics::ADAPTER_FAMILY_WEBGPU:   return "webgpu";
+        case dmGraphics::ADAPTER_FAMILY_DIRECTX:  return "directx";
+        case dmGraphics::ADAPTER_FAMILY_METAL:    return "metal";
+        case dmGraphics::ADAPTER_FAMILY_NONE:
+        default:                                  return "none";
         }
     }
 
@@ -84,14 +94,20 @@ namespace dmDRP
     {
         dmGraphics::HContext context = GetGraphicsContext(drp_context);
         if (!context || !IsStorageBufferSupported(drp_context) || size == 0 || (size & 3) != 0)
+        {
             return 0;
+        }
 
         dmGraphics::HStorageBuffer buffer = dmGraphics::NewStorageBuffer(context, size, data, usage);
         if (!buffer)
+        {
             return 0;
+        }
 
         if (drp_context->m_StorageBuffers.Full())
+        {
             drp_context->m_StorageBuffers.OffsetCapacity(drp_context->m_StorageBuffers.Capacity() == 0 ? 8 : drp_context->m_StorageBuffers.Capacity());
+        }
 
         StorageBufferRecord record;
         record.m_Id = AllocateStorageBufferId(drp_context);
@@ -106,11 +122,15 @@ namespace dmDRP
         StorageBufferRecord* record = FindStorageBuffer(drp_context, buffer_id, 0);
         dmGraphics::HContext context = GetGraphicsContext(drp_context);
         if (!record || !context || size == 0 || (size & 3) != 0)
+        {
             return false;
+        }
 
         dmGraphics::SetStorageBufferData(context, record->m_Buffer, size, data, usage);
         if (dmGraphics::GetStorageBufferSize(context, record->m_Buffer) != size)
+        {
             return false;
+        }
 
         record->m_Usage = usage;
         return true;
@@ -121,11 +141,15 @@ namespace dmDRP
         StorageBufferRecord* record = FindStorageBuffer(drp_context, buffer_id, 0);
         dmGraphics::HContext context = GetGraphicsContext(drp_context);
         if (!record || !context || !data || size == 0 || ((offset | size) & 3) != 0)
+        {
             return false;
+        }
 
         uint32_t buffer_size = dmGraphics::GetStorageBufferSize(context, record->m_Buffer);
         if (offset > buffer_size || size > buffer_size - offset)
+        {
             return false;
+        }
 
         dmGraphics::SetStorageBufferSubData(context, record->m_Buffer, offset, size, data);
         return true;
@@ -136,7 +160,9 @@ namespace dmDRP
         StorageBufferRecord* record = FindStorageBuffer(drp_context, buffer_id, 0);
         dmGraphics::HContext context = GetGraphicsContext(drp_context);
         if (!record || !context)
+        {
             return 0;
+        }
         return dmGraphics::GetStorageBufferSize(context, record->m_Buffer);
     }
 
@@ -151,7 +177,9 @@ namespace dmDRP
         StorageBufferRecord* record = FindStorageBuffer(drp_context, buffer_id, 0);
         dmGraphics::HContext context = GetGraphicsContext(drp_context);
         if (!record || !context || set >= MAX_DESCRIPTOR_SETS || binding >= MAX_BINDINGS_PER_SET)
+        {
             return false;
+        }
 
         dmGraphics::EnableStorageBuffer(context, record->m_Buffer, set, binding);
         return true;
@@ -162,7 +190,9 @@ namespace dmDRP
         StorageBufferRecord* record = FindStorageBuffer(drp_context, buffer_id, 0);
         dmGraphics::HContext context = GetGraphicsContext(drp_context);
         if (!record || !context)
+        {
             return false;
+        }
 
         dmGraphics::DisableStorageBuffer(context, record->m_Buffer);
         return true;
@@ -174,7 +204,9 @@ namespace dmDRP
         StorageBufferRecord* record = FindStorageBuffer(drp_context, buffer_id, &record_index);
         dmGraphics::HContext context = GetGraphicsContext(drp_context);
         if (!record || !context)
+        {
             return false;
+        }
 
         dmGraphics::DeleteStorageBuffer(context, record->m_Buffer);
         drp_context->m_StorageBuffers.EraseSwap(record_index);
@@ -184,12 +216,16 @@ namespace dmDRP
     void DeleteAllStorageBuffers(DRPContext* drp_context)
     {
         if (!drp_context)
+        {
             return;
+        }
         dmGraphics::HContext context = GetGraphicsContext(drp_context);
         if (context)
         {
             for (uint32_t i = 0; i < drp_context->m_StorageBuffers.Size(); ++i)
+            {
                 dmGraphics::DeleteStorageBuffer(context, drp_context->m_StorageBuffers[i].m_Buffer);
+            }
         }
         drp_context->m_StorageBuffers.SetSize(0);
     }

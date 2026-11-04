@@ -58,7 +58,7 @@ exposure again, or pass `nil` (or no argument) to clear all overrides.
 - All six DRP PBR surface shaders support both linear HDR and direct LDR output.
   Editor previews retain the existing display conversion. While HDR is active,
   the conventional opaque `model` predicate uses DRP's forward PBR override so
-  asset-pbr materials do not apply an early display conversion. Custom shaders
+  built-in glTF materials do not apply an early display conversion. Custom shaders
   using that predicate must follow this PBR contract; custom effects need their
   own HDR-aware draw integration.
 - Clear-color RGB values are linear scene values when HDR is active.
@@ -89,14 +89,9 @@ color allocation bytes (8 bytes/pixel, excluding backend-specific depth memory).
 
 ## Validation
 
-`tests/hdr_spec.lua` checks target lifetime, resize/toggles, exposure, strict and
-non-strict fallback, failed-allocation recovery, activation without scene
-objects, per-frame fullscreen submission, missing/old native bridges, transient
-submission recovery, stale-frame avoidance, and correct texture unbinding.
-`tests/hdr_math_spec.cpp` compiles the
-production GLSL math and checks exposure, highlight preservation, finite output,
-monotonicity, and the sRGB boundary. The clustered integration test verifies
-that HDR scene draws receive linear-output constants before the final resolve.
+Internal development checks cover target lifetime, resize/profile changes,
+exposure, allocation/submission recovery, output ordering, and tone-map math.
+They are maintained locally and are not part of the library.
 
 GPU smoke checks: run the cube or Sponza example, compare HDR off/on and EV
 -2/0/+2, toggle the heatmap, switch quality, resize, and move the camera. Check

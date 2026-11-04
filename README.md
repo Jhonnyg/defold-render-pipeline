@@ -6,7 +6,7 @@ PBR materials, shadows, HDR, ambient occlusion, depth of field, and rendering
 diagnostics.
 
 The current milestone implements the configuration foundation, native
-storage-buffer bridge, Forward+ light assignment, and asset-pbr-based clustered
+storage-buffer bridge, Forward+ light assignment, and engine glTF-based clustered
 shading for opaque, alpha-masked, and transparent models. The cluster grid and
 per-cluster light lists are extension-owned SSBOs. Punctual light data remains
 in Defold's engine-owned `LightBuffer` UBO and is consumed directly by both the
@@ -33,11 +33,13 @@ Examples, tests, and development tools stay outside the library. Existing
 `require("drp.drp")` imports and `/drp/` resource paths also work when DRP is
 loaded as a project dependency.
 
-Consuming projects must also add the
-[asset-pbr 0.1.0 dependency](https://github.com/defold/asset-pbr/archive/refs/tags/0.1.0.zip)
-and apply the [project configuration](#project-configuration) below. Defold does
-not inherit a library's dependencies or project settings. Vantage is only
-needed for this repository's examples.
+Consuming projects must use an engine/editor/Bob build containing the modular
+`/builtins/materials/gltf_*.glsl` shaders and apply the
+[project configuration](#project-configuration) below. DRP uses those built-in
+glTF shaders directly; no asset-pbr dependency is needed. Defold does not inherit
+a library's project settings. Vantage is only needed for this repository's examples.
+See [shader integration](drp/shaders/README.md) for the engine/DRP boundary and
+material behavior when upgrading.
 
 ## Current API
 
@@ -71,7 +73,7 @@ render script.
 - `ultra`: experimental maximum-quality target.
 
 The `balanced`, `high`, and `ultra` profiles activate clustered lighting. On a
-cluster-capable device, switching to `compatibility` uses conventional asset-pbr
+cluster-capable device, switching to `compatibility` uses conventional glTF
 material overrides for the same scene. These profiles also enable HDR scene
 rendering and tone mapping automatically when using `/drp/drp.render`; no HDR
 game object is required. Compatibility defaults to LDR with shadows disabled.

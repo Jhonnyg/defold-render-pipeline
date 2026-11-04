@@ -1,5 +1,9 @@
 -- Moving geometry requires the default (cache=false) shadow mode.
-function init(self) self.time = 0 end
+
+function init(self)
+	self.time = 0
+end
+
 function update(self, dt)
 	self.time = self.time + dt
 	go.set_position(vmath.vector3(math.sin(self.time) * 2, 0, -12), "/cube_middle")

@@ -151,7 +151,9 @@ end
 
 for _, name in ipairs({ "register_shadow_light", "update_shadow_light", "unregister_shadow_light",
 	"get_shadow_lights", "invalidate_shadows", "pack_floats" }) do
-	M[name] = function(...) return require_backend()[name](...) end
+	M[name] = function(...)
+		return require_backend()[name](...)
+	end
 end
 
 return M

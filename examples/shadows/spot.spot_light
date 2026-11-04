@@ -1,7 +1,0 @@
-data { struct {
-fields { key: "color" value { list { values { number: 0.2 } values { number: 0.45 } values { number: 1 } } } }
-fields { key: "intensity" value { number: 18 } }
-fields { key: "range" value { number: 24 } }
-fields { key: "inner_cone_angle" value { number: 0.8 } }
-fields { key: "outer_cone_angle" value { number: 1.4 } }
-} }

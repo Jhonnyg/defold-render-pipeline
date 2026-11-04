@@ -294,7 +294,10 @@ end
 ---Shared across game-script and render-script Lua worlds; applied on the next shadow pass.
 function M.invalidate_shadows()
 	local native = require("drp.internal.native")
-	if native.is_shadows_available() then native.invalidate_shadows(); return true end
+	if native.is_shadows_available() then
+		native.invalidate_shadows()
+		return true
+	end
 	return nil, "native light API unavailable"
 end
 

@@ -1,5 +1,0 @@
-data { struct {
-fields { key: "color" value { list { values { number: 1 } values { number: 0.35 } values { number: 0.12 } } } }
-fields { key: "intensity" value { number: 12 } }
-fields { key: "range" value { number: 24 } }
-} }

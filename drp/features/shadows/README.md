@@ -141,7 +141,7 @@ camera, viewport and drawing state before the clustered/HDR scene pass.
 
 Compatibility rendering has shadows off. Transparent surfaces receive shadows
 but do not cast translucent shadows. Custom deformation must be reproduced by
-the shadow vertex pass. Alpha masking uses the same asset-pbr coverage/cutoff as
+the shadow vertex pass. Alpha masking uses the same built-in glTF coverage/cutoff as
 the visible pass. Directional cameras need positive near/far depths. Multiple
 scene cameras are not rendered concurrently; the last enabled camera is shared
 with clustered lighting.

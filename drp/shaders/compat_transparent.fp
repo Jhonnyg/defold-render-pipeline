@@ -1,28 +1,29 @@
 #version 140
 
-// Conventional asset-pbr alpha-blended variant used as a render-time override
-// by the compatibility profile. The render script supplies blending, disables
-// depth writes, and sorts transparent render entries back-to-front.
-
-in mediump mat4 var_view;
-
 #define MAX_LIGHT_COUNT 8
-#include "/drp/shaders/pbr_engine_compat.glsl"
-#include "/defold-pbr/shaders/pbr_lighting.glsl"
-#undef world_to_view_point
-#undef world_to_view_dir
 
+#include "/drp/shaders/gltf_surface.glsl"
+#include "/builtins/materials/gltf_lighting.glsl"
 #include "/drp/shaders/output.glsl"
+
+out vec4 out_fragColor;
 
 void main()
 {
-    PBRParams params = get_pbr_params();
-    MaterialInfo material = get_material_info(params);
-    // Skip effectively invisible fragments before evaluating all forward lights.
-    if (material.baseColor.a <= 0.001)
+    PBRMaterial inputs = drp_sample_material(PBR_ALPHA_BLEND);
+    // Sample normal maps before discard to preserve derivatives at cutout edges.
+    PBRSurface surface = pbr_sample_surface(inputs, var_texcoord0);
+    if (drp_should_discard(inputs))
     {
         discard;
     }
-    PBRLightData data = calculate_pbr_light_data(params, material, var_position.xyz);
-    out_fragColor = vec4(drp_output(composite_pbr_light_data(data)), data.alpha);
+    PBRLighting lighting = pbr_create_lighting();
+    if (!inputs.unlit)
+    {
+        MaterialInfo material = pbr_create_material_info(inputs);
+        lighting.direct = pbr_evaluate_direct_lighting(material, surface, var_view);
+        lighting.indirect = pbr_evaluate_ambient_lighting(material, ambient_light());
+    }
+    vec3 color = pbr_compose_lighting(inputs, lighting, inputs.occlusion, inputs.occlusion);
+    out_fragColor = vec4(drp_output(color), pbr_get_alpha(inputs));
 }

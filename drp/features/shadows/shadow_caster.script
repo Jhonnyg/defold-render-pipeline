@@ -10,26 +10,58 @@ go.property("softness", 1.5)
 go.property("cache", false)
 
 local function settings(self)
-	return { enabled = self.enabled, priority = self.priority, bias = self.bias,
-		normal_bias = self.normal_bias, softness = self.softness, cache = self.cache }
+	return {
+		enabled = self.enabled,
+		priority = self.priority,
+		bias = self.bias,
+		normal_bias = self.normal_bias,
+		softness = self.softness,
+		cache = self.cache,
+	}
 end
+
 local function synchronize(self)
 	local current = settings(self)
 	local changed = false
-	for name, value in pairs(current) do if self.previous[name] ~= value then changed = true; break end end
-	if changed then native.update_shadow_light(self.registration, current); self.previous = current end
+	for name, value in pairs(current) do
+		if self.previous[name] ~= value then
+			changed = true
+			break
+		end
+	end
+
+	-- Keep the last successful snapshot if native validation raises an error.
+	if changed then
+		native.update_shadow_light(self.registration, current)
+		self.previous = current
+	end
 end
+
 function init(self)
 	assert(native.is_shadows_available(), "Shadow casters require a DRP engine with the light dmSDK API")
 	self.previous = settings(self)
 	self.registration = native.register_shadow_light(self.light, self.previous)
 end
-function update(self) synchronize(self) end
-function on_message(self, message_id)
-	if message_id == hash("enable") then self.enabled = true; synchronize(self)
-	elseif message_id == hash("disable") then self.enabled = false; synchronize(self)
-	elseif message_id == hash("invalidate_shadows") then native.invalidate_shadows() end
+
+function update(self)
+	synchronize(self)
 end
+
+function on_message(self, message_id)
+	if message_id == hash("enable") then
+		self.enabled = true
+		synchronize(self)
+	elseif message_id == hash("disable") then
+		self.enabled = false
+		synchronize(self)
+	elseif message_id == hash("invalidate_shadows") then
+		native.invalidate_shadows()
+	end
+end
+
 function final(self)
-	if self.registration then native.unregister_shadow_light(self.registration); self.registration = nil end
+	if self.registration then
+		native.unregister_shadow_light(self.registration)
+		self.registration = nil
+	end
 end

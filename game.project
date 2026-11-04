@@ -32,7 +32,6 @@ scale_mode = stretch
 [project]
 title = defold-render-pipeline
 dependencies#0 = https://github.com/Jhonnyg/defold-vantage/archive/refs/tags/0.3.0.zip
-dependencies#1 = https://github.com/defold/asset-pbr/archive/refs/tags/0.1.0.zip
 
 [library]
 include_dirs = drp

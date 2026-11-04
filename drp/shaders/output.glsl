@@ -10,9 +10,9 @@ uniform fs_drp_output
 vec3 drp_output(vec3 linear_color)
 {
 #ifdef EDITOR
-    return to_output(linear_color);
+    return pbr_linear_to_srgb(linear_color);
 #else
-    return drp_output_settings.x > 0.5 ? linear_color : to_output(linear_color);
+    return drp_output_settings.x > 0.5 ? linear_color : pbr_linear_to_srgb(linear_color);
 #endif
 }
 

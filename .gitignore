@@ -2,14 +2,7 @@
 /.internal
 /build
 /docs/internal
-/tests/**
-!/tests/shadows_spec.lua
-!/tests/runtime_overrides_spec.lua
-!/tests/hdr_spec.lua
-!/tests/hdr_math_spec.cpp
-!/tests/native_context_spec.cpp
-!/tests/run_shadow_smoke.py
-!/tests/shadow_runtime_smoke.lua
+/tests/
 .externalToolBuilders
 .DS_Store
 Thumbs.db
