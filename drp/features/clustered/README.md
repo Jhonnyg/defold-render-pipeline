@@ -10,6 +10,12 @@ they do not require another lighting-feature redesign.
 The complete pass and resource contract is documented in
 [`docs/CLUSTERED_LIGHTING.md`](../../../docs/CLUSTERED_LIGHTING.md).
 
+Scene drawing is owned by `drp/internal/scene.lua`. This feature's
+`prepare_scene` hook handles cluster depth ranges and light assignment, then
+contributes constants and storage-buffer bindings to the scene pass. It does
+not select the scene output target or coordinate other features. See
+[scene rendering and feature stages](../../internal/README.md).
+
 ## Implemented MVP1 functionality
 
 - Forward+ frustum partitioning with screen tiles and logarithmic Z slices.

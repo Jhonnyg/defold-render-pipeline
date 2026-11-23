@@ -1,6 +1,5 @@
 local native = require("drp.internal.native")
 local resources = require("drp.internal.resources")
-local hdr = require("drp.features.hdr.hdr")
 local config = require("drp.features.clustered.config")
 local requirements = require("drp.features.clustered.requirements")
 
@@ -49,19 +48,6 @@ local state = {
 
 local function ceil_div(value, divisor)
 	return math.floor((value + divisor - 1) / divisor)
-end
-
-local function active_camera()
-	if not _G.camera then
-		return nil
-	end
-	local cameras = camera.get_cameras()
-	for index = #cameras, 1, -1 do
-		if camera.get_enabled(cameras[index]) then
-			return cameras[index]
-		end
-	end
-	return nil
 end
 
 local function clustered_requested(context)
@@ -279,10 +265,8 @@ local function update_projection(projection, near_z, far_z)
 	end
 end
 
-local function make_constants(context, view, projection, near_z, far_z)
-	local common = render.constant_buffer()
+local function make_constants(context, common, view, projection, near_z, far_z)
 	common.cluster_projection = projection
-	common.drp_output_settings = hdr.output_settings()
 	common.cluster_grid = vmath.vector4(
 		state.grid_x,
 		state.grid_y,
@@ -316,7 +300,7 @@ local function make_constants(context, view, projection, near_z, far_z)
 		0
 	)
 
-	return common, build, assign
+	return build, assign
 end
 
 local function reset_clusters(assign)
@@ -351,25 +335,11 @@ local function build_clusters(build, assign)
 	render.set_compute()
 end
 
-local function begin_scene(camera_component)
-	render.set_render_target(hdr.get_render_target())
-	render.set_viewport(0, 0, render.get_window_width(), render.get_window_height())
-	render.set_camera(camera_component, { use_frustum = true })
-	-- The transparent pass leaves depth writes disabled. Depth clears honor the
-	-- current write mask on several backends, so restore it before clearing or
-	-- stale depth from the previous camera pose will reject this frame's scene.
-	render.set_depth_mask(true)
-	render.clear(state.clear)
-	render.set_depth_func(graphics.COMPARE_FUNC_LEQUAL)
-	render.enable_state(graphics.STATE_DEPTH_TEST)
-	render.set_color_mask(true, true, true, true)
-end
-
 local function render_depth_ranges(constants)
 	-- Atomically accumulate the conservative depth interval for every XY tile.
 	-- This pass deliberately does not update hardware depth: fragment shaders
 	-- with SSBO atomics cannot also serve as a reliable depth prepass on every
-	-- backend. The shaded opaque/mask pass below owns hardware depth instead.
+	-- backend. The scene renderer's shaded opaque/mask pass owns hardware depth.
 	-- Including occluded geometry can only add conservative false positives to
 	-- light assignment; it cannot omit a light needed by a visible fragment.
 	bind_cluster_buffers()
@@ -403,102 +373,9 @@ local function render_depth_ranges(constants)
 	render.set_color_mask(true, true, true, true)
 end
 
-local function draw_models(constants)
-	-- The model predicate is the conventional opaque built-in glTF path. Its
-	-- default shader converts to display color, so use our linear-capable
-	-- PBR override while rendering into HDR.
-	-- The glTF fragment shader enforces each material's doubleSided flag.
-	local linear = constants.drp_output_settings.x > 0.5
-	if linear then
-		render.enable_material("drp_compat_opaque")
-	end
-	render.draw(state.model, { constants = constants, sort_order = render.SORT_FRONT_TO_BACK })
-	if linear then
-		render.disable_material()
-	end
-end
-
-local function draw_clustered(constants)
-	bind_cluster_buffers()
-	-- The range-recording pass does not populate hardware depth. Render opaque
-	-- and masked surfaces with conventional depth writes so visibility is stable
-	-- across backends and independent of SSBO fragment-side effects.
-	render.set_depth_func(graphics.COMPARE_FUNC_LEQUAL)
-	render.set_depth_mask(true)
-	render.disable_state(graphics.STATE_CULL_FACE)
-	render.draw(state.opaque, {
-		constants = constants,
-		sort_order = render.SORT_FRONT_TO_BACK,
-	})
-	render.disable_state(graphics.STATE_CULL_FACE)
-	render.draw(state.mask, {
-		constants = constants,
-		sort_order = render.SORT_FRONT_TO_BACK,
-	})
-
-	-- Conventional built-in glTF/model materials are the compatibility path. Keep
-	-- their regular depth behavior because they did not participate in DRP's
-	-- depth-range pass.
-	render.set_depth_func(graphics.COMPARE_FUNC_LEQUAL)
-	render.set_depth_mask(true)
-	render.disable_state(graphics.STATE_CULL_FACE)
-	draw_models(constants)
-	render.disable_state(graphics.STATE_CULL_FACE)
-
-	bind_cluster_buffers()
-	render.set_depth_mask(false)
-	render.enable_state(graphics.STATE_BLEND)
-	render.set_blend_func(
-		graphics.BLEND_FACTOR_SRC_ALPHA,
-		graphics.BLEND_FACTOR_ONE_MINUS_SRC_ALPHA
-	)
-	render.draw(state.transparent, {
-		constants = constants,
-		sort_order = render.SORT_BACK_TO_FRONT,
-	})
-	render.disable_state(graphics.STATE_BLEND)
-end
-
-local function draw_compatibility()
-	local constants = render.constant_buffer()
-	constants.drp_output_settings = hdr.output_settings()
-	-- Cluster-authored content is rendered through resource-level material
-	-- overrides. This keeps one scene usable by both Forward+ and compatibility
-	-- profiles while leaving its textures and per-model material constants intact.
-	render.disable_state(graphics.STATE_CULL_FACE)
-	draw_models(constants)
-	render.enable_material("drp_compat_opaque")
-	render.draw(state.opaque, { constants = constants, sort_order = render.SORT_FRONT_TO_BACK })
-	render.disable_material()
-	render.disable_state(graphics.STATE_CULL_FACE)
-
-	render.enable_material("drp_compat_mask")
-	render.draw(state.mask, { constants = constants, sort_order = render.SORT_FRONT_TO_BACK })
-	render.disable_material()
-
-	render.set_depth_mask(false)
-	render.enable_state(graphics.STATE_BLEND)
-	render.set_blend_func(
-		graphics.BLEND_FACTOR_SRC_ALPHA,
-		graphics.BLEND_FACTOR_ONE_MINUS_SRC_ALPHA
-	)
-	render.enable_material("drp_compat_transparent")
-	render.draw(state.transparent, { constants = constants, sort_order = render.SORT_BACK_TO_FRONT })
-	render.disable_material()
-	render.disable_state(graphics.STATE_BLEND)
-end
-
-local function end_scene()
-	hdr.scene_rendered()
-
-	render.disable_state(graphics.STATE_DEPTH_TEST)
-	render.set_depth_mask(false)
-end
-
 function M.initialize(context)
 	state.enabled = clustered_requested(context)
-	state.render_available = _G.render ~= nil and _G.graphics ~= nil and
-		_G.vmath ~= nil and _G.sys ~= nil
+	state.render_available = _G.render ~= nil and _G.graphics ~= nil and _G.vmath ~= nil
 
 	for _, descriptor in ipairs(BUFFER_DESCRIPTORS) do
 		-- TODO(engine-reflection): Storage buffers currently pass through parts of
@@ -524,17 +401,6 @@ function M.initialize(context)
 	state.opaque = render.predicate({ "drp_cluster_opaque" })
 	state.mask = render.predicate({ "drp_cluster_mask" })
 	state.transparent = render.predicate({ "drp_cluster_transparent" })
-	state.model = render.predicate({ "model" })
-	state.clear = {
-		[graphics.BUFFER_TYPE_COLOR0_BIT] = vmath.vector4(
-			sys.get_config_number("render.clear_color_red", 0),
-			sys.get_config_number("render.clear_color_green", 0),
-			sys.get_config_number("render.clear_color_blue", 0),
-			1
-		),
-		[graphics.BUFFER_TYPE_DEPTH_BIT] = 1,
-		[graphics.BUFFER_TYPE_STENCIL_BIT] = 0,
-	}
 end
 
 function M.on_profile_changed(context)
@@ -559,39 +425,44 @@ function M.resize(context, width, height)
 	end
 end
 
-function M.render(context)
-	if not state.render_available then
+function M.prepare_scene(context, pass)
+	if not state.render_available or not state.enabled or not state.available then
 		return
 	end
-	local camera_component = active_camera()
-	if not camera_component then
-		return
-	end
-
-	-- Logarithmic slices require positive view depths. Orthographic cameras
-	-- whose clip range crosses the eye use forward shading for this frame.
-	local camera_near = camera.get_near_z(camera_component)
-	local camera_far = camera.get_far_z(camera_component)
-	if not state.enabled or not state.available or camera_near <= 0 or camera_far <= camera_near then
-		begin_scene(camera_component)
-		draw_compatibility()
-		end_scene()
+	local camera = context.camera
+	if not camera then
 		return
 	end
 
-	local view = camera.get_view(camera_component)
-	local projection = camera.get_projection(camera_component)
+	-- Logarithmic slices require finite positive view depths. Leave the scene's
+	-- forward path selected when an orthographic clip range crosses the eye.
+	local camera_near, camera_far = camera.near, camera.far
+	if type(camera_near) ~= "number" or type(camera_far) ~= "number"
+		or not (camera_near > 0 and camera_far > camera_near and camera_far < math.huge) then
+		return
+	end
+
 	local near_z = math.max(camera_near, 0.0001)
 	local far_z = math.max(camera_far, near_z + 0.0001)
-	update_projection(projection, near_z, far_z)
-	local common, build, assign = make_constants(context, view, projection, near_z, far_z)
+	update_projection(camera.projection, near_z, far_z)
+	local build, assign = make_constants(context, pass.constants,
+		camera.view, camera.projection, near_z, far_z)
 
-	begin_scene(camera_component)
+	-- The scene renderer already selected the camera and target, and cleared
+	-- hardware depth. Collect only tile depth ranges here; scene shading and
+	-- its target, output encoding, and completion belong to the scene renderer.
 	reset_clusters(assign)
-	render_depth_ranges(common)
+	render_depth_ranges(pass.constants)
 	build_clusters(build, assign)
-	draw_clustered(common)
-	end_scene()
+
+	pass.lighting_path = "clustered"
+	for _, descriptor in ipairs(BUFFER_DESCRIPTORS) do
+		pass.storage_buffers[#pass.storage_buffers + 1] = {
+			handle = state.buffers[descriptor.name],
+			set = STORAGE_SET,
+			binding = descriptor.binding,
+		}
+	end
 end
 
 function M.get_diagnostics()
