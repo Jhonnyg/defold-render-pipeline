@@ -1,7 +1,7 @@
 local M = {}
 
--- DRP owns the feature set. Add built-in feature modules here in execution
--- order as they are implemented.
+-- DRP owns the feature set. The pipeline invokes explicit scene stages;
+-- registration order only determines ordering within each stage.
 local feature_modules = {
 	require("drp.features.clustered.clustered"),
 	require("drp.features.hdr.hdr"),
@@ -32,8 +32,20 @@ function M.begin_frame(context)
 	invoke("begin_frame", context)
 end
 
-function M.render(context)
-	invoke("render", context)
+function M.render_before_scene(context)
+	invoke("render_before_scene", context)
+end
+
+function M.configure_scene(context, pass)
+	invoke("configure_scene", context, pass)
+end
+
+function M.prepare_scene(context, pass)
+	invoke("prepare_scene", context, pass)
+end
+
+function M.render_after_scene(context, pass)
+	invoke("render_after_scene", context, pass)
 end
 
 function M.on_message(context, message_id, message, sender)

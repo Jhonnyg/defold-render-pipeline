@@ -1,8 +1,10 @@
+local frame_camera = require("drp.internal.camera")
 local capabilities = require("drp.internal.capabilities")
 local features = require("drp.internal.features")
 local native = require("drp.internal.native")
 local quality = require("drp.internal.quality")
 local resources = require("drp.internal.resources")
+local scene = require("drp.internal.scene")
 local utils = require("drp.internal.utils")
 
 local M = {}
@@ -133,6 +135,7 @@ function M.initialize(options)
 	state.viewport = nil
 	state.feature_context = feature_context(0)
 
+	scene.initialize()
 	features.initialize(state.feature_context)
 	return snapshot_state()
 end
@@ -140,6 +143,7 @@ end
 function M.finalize()
 	if state.initialized then
 		features.finalize(state.feature_context or feature_context(0))
+		scene.finalize()
 	end
 	resources.reset()
 	native.reset()
@@ -214,6 +218,9 @@ function M.begin_frame(dt, width, height)
 	if viewport_changed then
 		features.resize(state.feature_context, width, height)
 	end
+	-- Quality listeners may enable or move cameras. Snapshot after those
+	-- callbacks so every render stage sees the same final camera for this frame.
+	state.feature_context.camera = frame_camera.snapshot()
 	features.begin_frame(state.feature_context)
 	return transition
 end
@@ -222,7 +229,18 @@ function M.render()
 	if not state.initialized then
 		return nil, "DRP must be initialized before rendering"
 	end
-	features.render(state.feature_context or feature_context())
+	local context = state.feature_context or feature_context()
+	-- begin_frame has already submitted every fullscreen entry. Pre-scene
+	-- features can now draw their own targets before the scene target is selected.
+	features.render_before_scene(context)
+	local pass = scene.create_pass(context)
+	if pass then
+		features.configure_scene(context, pass)
+		scene.begin(context, pass)
+		features.prepare_scene(context, pass)
+		scene.render(context, pass)
+		features.render_after_scene(context, pass)
+	end
 	return true
 end
 

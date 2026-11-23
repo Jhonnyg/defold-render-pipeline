@@ -133,7 +133,7 @@ function M.initialize()
 end
 
 function M.begin_frame(context)
-	state.scene_rendered = false
+	state.presented_pass = nil
 	configure(context)
 	if state.available then
 		-- Render entries expire every frame, even when the target is reused.
@@ -146,20 +146,18 @@ function M.begin_frame(context)
 	end
 end
 
-function M.get_render_target()
-	return state.available and state.target or render.RENDER_TARGET_DEFAULT
+function M.configure_scene(context, pass)
+	if state.available then
+		pass.target = state.target
+		pass.linear_output = true
+	end
 end
 
-function M.output_settings()
-	return vmath.vector4(state.available and 1 or 0, 0, 0, 0)
-end
-
-function M.scene_rendered()
-	state.scene_rendered = true
-end
-
-function M.render()
-	if not state.available or not state.scene_rendered then
+function M.render_after_scene(context, pass)
+	-- Completion belongs to the scene pass. Never present a target that was not
+	-- drawn this frame, or resolve the same pass more than once.
+	if not state.available or not pass.rendered or pass.target ~= state.target
+		or state.presented_pass == pass then
 		return
 	end
 
@@ -182,7 +180,7 @@ function M.render()
 	render.draw(state.predicate, { constants = state.constants })
 	render.disable_material()
 	render.disable_texture("texture0")
-	state.scene_rendered = false
+	state.presented_pass = pass
 end
 
 function M.get_diagnostics()
@@ -202,7 +200,7 @@ end
 function M.finalize()
 	release_target()
 	state.enabled = false
-	state.scene_rendered = false
+	state.presented_pass = nil
 	state.render_available = false
 	state.failure = nil
 	state.predicate, state.constants = nil, nil

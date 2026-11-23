@@ -46,9 +46,12 @@ exposure again, or pass `nil` (or no argument) to clear all overrides.
 
 ## Integration and fallback
 
-- The HDR module owns target allocation, presentation, and cleanup. Clustered
-  rendering selects its scene target and passes `drp_output_settings` to the
-  materials. The feature dispatcher presents after scene rendering.
+- The HDR module owns target allocation, presentation, and cleanup. Its
+  `configure_scene` hook supplies the target and linear-output requirement to
+  the pipeline's scene pass. The shared scene renderer selects the target and
+  passes `drp_output_settings` to materials. HDR's `render_after_scene` hook
+  presents the completed pass. Clustered lighting has no HDR dependency; see
+  [scene rendering and feature stages](../../internal/README.md).
 - The native extension owns the fullscreen geometry and retains the tone-map
   material. Render entries are submitted each active HDR frame and drawn by
   the existing `drp_hdr_tonemap` predicate. The renderer includes the material
