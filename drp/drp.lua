@@ -62,6 +62,27 @@ local quality = require("drp.internal.quality")
 ---@field color_format string Scene color format.
 ---@field color_bytes integer Scene color allocation, excluding depth.
 
+---@class drp.GTAODiagnostics
+---@field enabled boolean Whether the profile requests screen-space AO.
+---@field available boolean Whether current-frame AO passes have been queued.
+---@field reason string|nil Why AO is inactive.
+---@field width integer Full-resolution depth/filtered width.
+---@field height integer Full-resolution depth/filtered height.
+---@field raw_width integer Raw visibility width.
+---@field raw_height integer Raw visibility height.
+---@field quality string Effective sampling preset.
+---@field resolution number Raw AO scale relative to the viewport.
+---@field radius number AO search radius in scene units.
+---@field intensity number Occlusion strength.
+---@field power number Visibility contrast exponent.
+---@field bias number Horizon-cosine bias against self-occlusion.
+---@field slices integer Angular slices sampled per pixel.
+---@field steps integer Samples per slice direction.
+---@field temporal boolean Whether temporal accumulation is used (currently false).
+---@field depth_format string Linear-depth target format.
+---@field ao_format string Visibility target format.
+---@field estimated_target_bytes integer Target allocation estimate, including hardware depth.
+
 ---@class drp.QualityTransition
 ---@field frame integer Frame on which the transition became active.
 ---@field dt number Delta time passed to `drp.begin_frame()`.
@@ -182,8 +203,8 @@ end
 ---The clustered record includes grid dimensions, effective capacities, buffer
 ---sizes, and the conservative assignment workload. Exact occupancy and
 ---overflow remain GPU-resident and are visualized by the clustered heatmap.
----@param name string Feature name: `"clustered"` or `"hdr"`.
----@return drp.ClusteredDiagnostics|drp.HDRDiagnostics|nil diagnostics
+---@param name string Feature name: `"clustered"`, `"hdr"`, or `"gtao"`.
+---@return drp.ClusteredDiagnostics|drp.HDRDiagnostics|drp.GTAODiagnostics|nil diagnostics
 ---@return string|nil error
 function M.get_feature_diagnostics(name)
 	return pipeline.get_feature_diagnostics(name)

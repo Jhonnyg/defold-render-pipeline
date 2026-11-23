@@ -76,9 +76,11 @@ The `balanced`, `high`, and `ultra` profiles activate clustered lighting. On a
 cluster-capable device, switching to `compatibility` uses conventional glTF
 material overrides for the same scene. These profiles also enable HDR scene
 rendering and tone mapping automatically when using `/drp/drp.render`; no HDR
-game object is required. Compatibility defaults to LDR. Shadow and other
-post-processing settings still describe future rendering intent. See
-[HDR setup and controls](drp/features/hdr/README.md).
+game object is required. They also enable screen-space ambient occlusion with
+depth-aware filtering. Compatibility defaults to LDR with AO off. Shadows,
+depth of field and temporal settings still describe future rendering intent.
+See [HDR setup and controls](drp/features/hdr/README.md) and
+[GTAO setup and controls](drp/features/gtao/README.md).
 
 Devices without compute/SSBO support need a **compatibility build**: Defold loads
 render and model shader resources before the Lua quality fallback can run.
@@ -140,8 +142,10 @@ engine glTF-based clustered shading, transparent ordering, and runtime
 compatibility overrides are active. Automatically assigning a clustered
 material from imported material metadata still needs an editor/build-pipeline
 integration. HDR scene rendering, manual exposure, and ACES-style tone mapping
-are implemented as a separate feature. Shadows and the remaining post effects
-remain future work. See
+are implemented as a separate feature. GTAO supplies a linear-depth prepass,
+analytic horizon integration, spatial filtering and indirect-light visibility,
+independently of HDR and shadows. Shadows and the remaining post effects remain
+future work. See
 [clustered lighting](docs/CLUSTERED_LIGHTING.md) for the current pass and
 resource contract. The feature is functionally complete for its current MVP1
 scope; its remaining validation and pre-PR work is tracked in the

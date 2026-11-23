@@ -30,6 +30,11 @@ return {
 		post = {
 			gtao = true,
 			gtao_resolution = 0.5,
+			gtao_quality = "medium",
+			gtao_radius = 0.5,
+			gtao_intensity = 1.0,
+			gtao_power = 1.0,
+			gtao_bias = 0.02,
 			dof = false,
 			temporal = false,
 		},

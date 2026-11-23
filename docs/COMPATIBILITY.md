@@ -37,3 +37,9 @@ including its Defold/native-extension revision and GLES shader settings.
 Automatic selection between both shader families within a single portable
 bundle requires engine support for deferred or optional shader resources. It is
 not provided by this project-only export.
+
+HDR and GTAO fullscreen/depth materials are retained in the compatibility
+renderer; neither requires compute shaders or SSBOs. Both default to off in
+the compatibility profile. They may be enabled independently through runtime
+overrides when the native fullscreen bridge and floating-point targets are
+available. Opaque/masked PBR materials declare six texture slots including AO.

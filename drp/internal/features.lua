@@ -3,6 +3,7 @@ local M = {}
 -- DRP owns the feature set. The pipeline invokes explicit scene stages;
 -- registration order only determines ordering within each stage.
 local feature_modules = {
+	require("drp.features.gtao.gtao"),
 	require("drp.features.clustered.clustered"),
 	require("drp.features.hdr.hdr"),
 }

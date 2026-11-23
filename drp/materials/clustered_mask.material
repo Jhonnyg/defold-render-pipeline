@@ -18,3 +18,12 @@ samplers { name: "PbrMaterial_normalTexture" wrap_u: WRAP_MODE_REPEAT wrap_v: WR
 samplers { name: "PbrMaterial_occlusionTexture" wrap_u: WRAP_MODE_REPEAT wrap_v: WRAP_MODE_REPEAT filter_min: FILTER_MODE_MIN_LINEAR filter_mag: FILTER_MODE_MAG_LINEAR }
 samplers { name: "PbrMaterial_emissiveTexture" wrap_u: WRAP_MODE_REPEAT wrap_v: WRAP_MODE_REPEAT filter_min: FILTER_MODE_MIN_LINEAR filter_mag: FILTER_MODE_MAG_LINEAR }
 fragment_constants { name: "drp_output_settings" type: CONSTANT_TYPE_USER }
+fragment_constants { name: "drp_ao_projection" type: CONSTANT_TYPE_USER }
+fragment_constants { name: "drp_ao_settings" type: CONSTANT_TYPE_USER }
+samplers {
+  name: "drp_ao_texture"
+  wrap_u: WRAP_MODE_CLAMP_TO_EDGE
+  wrap_v: WRAP_MODE_CLAMP_TO_EDGE
+  filter_min: FILTER_MODE_MIN_NEAREST
+  filter_mag: FILTER_MODE_MAG_NEAREST
+}
