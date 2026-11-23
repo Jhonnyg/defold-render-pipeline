@@ -1,18 +1,16 @@
 #version 430
 
-// Alpha-tested depth override. The cutoff matches the visible mask shader so
-// cutout geometry does not inflate the tile depth range with solid rectangles.
-
-in mediump mat4 var_view;
-
-#define MAX_LIGHT_COUNT 8
-
-#include "/drp/shaders/cluster_depth_alpha.glsl"
+// Coverage and sidedness must match the visible pass. Unused glTF texture
+// samples are eliminated; depth only needs base alpha and material flags.
+#include "/drp/shaders/gltf_surface.glsl"
 #include "/drp/shaders/cluster_depth_range.glsl"
+
+out vec4 out_fragColor;
 
 void main()
 {
-    if (drp_cluster_base_alpha() < pbrAlphaCutoffAndDoubleSidedAndIsUnlit.x)
+    PBRMaterial inputs = drp_sample_material(PBR_ALPHA_MASK);
+    if (drp_should_discard(inputs))
     {
         discard;
     }

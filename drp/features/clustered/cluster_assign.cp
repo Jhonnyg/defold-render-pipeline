@@ -129,7 +129,7 @@ bool evaluate_candidate(Light light, ClusterBounds bounds, out float score)
     }
 
     // This is only a residency estimate for overflowing clusters. Actual
-    // shading still evaluates asset-pbr's complete attenuation and BRDF.
+    // shading still evaluates the engine's glTF attenuation and BRDF.
     float luminance = dot(max(light.color.rgb, vec3(0.0)),
         vec3(0.2126, 0.7152, 0.0722));
     score = luminance * max(light.params.y, 0.0) *

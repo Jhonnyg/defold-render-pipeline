@@ -22,7 +22,7 @@ The complete pass and resource contract is documented in
 - Uniform per-cluster capacity reduction when device buffer limits require it.
 - Contribution-ranked selection when a cluster exceeds its light-list limit.
 - Conservative visible tile depth ranges for rejecting empty Z slices.
-- asset-pbr metallic-roughness shading for opaque and alpha-masked geometry.
+- Built-in glTF metallic-roughness shading for opaque and alpha-masked geometry.
 - Basic transparent clustered shading with depth writes disabled and explicit
   back-to-front render-entry sorting.
 - Conventional compatibility rendering without duplicate scenes.

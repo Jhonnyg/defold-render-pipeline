@@ -58,7 +58,7 @@ exposure again, or pass `nil` (or no argument) to clear all overrides.
 - All six DRP PBR surface shaders support both linear HDR and direct LDR output.
   Editor previews retain the existing display conversion. While HDR is active,
   the conventional opaque `model` predicate uses DRP's forward PBR override so
-  asset-pbr materials do not apply an early display conversion. Custom shaders
+  built-in glTF materials do not apply an early display conversion. Custom shaders
   using that predicate must follow this PBR contract; custom effects need their
   own HDR-aware draw integration.
 - Clear-color RGB values are linear scene values when HDR is active.
