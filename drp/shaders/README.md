@@ -13,11 +13,17 @@ is no longer used. Compute programs remain with their owning feature.
 | Explicit opaque/mask/transparent pass selection and coverage | `gltf_surface.glsl` |
 | Compact light selection | `clustered_pbr.glsl` |
 | Linear HDR or sRGB scene output | `output.glsl` |
+| Screen-space indirect visibility | `ambient_occlusion.glsl` and `features/gtao/` |
 
 The clustered loop calls `sample_light()` for each compact engine light index
 and evaluates the built-in BRDF. Conventional compatibility and editor
 previews use the engine's direct-light loop. Both paths use engine ambient lighting and `pbr_compose_lighting()`.
-Material AO attenuates indirect lighting only. Emission is added independently
+Material AO and GTAO attenuate indirect lighting only. The opaque and mask
+passes multiply their visibility factors; transparent surfaces retain material
+AO alone. GTAO uses a full-resolution filtered texture with projection-space UVs
+and a per-frame availability constant, so disabled frames are unoccluded.
+The editor preview bypasses GTAO. See [GTAO](../features/gtao/README.md).
+Emission is added independently
 of direct and indirect lighting; unlit materials output their base color. HDR retains linear scene values until
 the tone-map pass; LDR/editor output uses `pbr_linear_to_srgb()`.
 

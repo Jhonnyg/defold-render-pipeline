@@ -196,7 +196,7 @@ capabilities.
 ### `drp.get_feature_diagnostics(name)`
 
 Returns a defensive snapshot of CPU-visible diagnostics for a feature. The
-currently supported name is `"clustered"`. Its record contains the grid,
+supported names are `"clustered"`, `"hdr"`, and `"gtao"`. The clustered record contains the grid,
 effective capacities, per-buffer byte sizes, total storage use, whether device
 limits clamped the profile, and a conservative maximum assignment workload.
 
@@ -231,3 +231,21 @@ fullscreen support or unsupported targets disable HDR while retaining scene
 rendering. A failed fullscreen submission uses LDR for that frame and retries
 on the next frame without reallocating the target.
 See [HDR](../drp/features/hdr/README.md) for material and custom-render integration.
+
+## Ambient occlusion
+
+`post.gtao` enables GTAO with the bundled renderer. Balanced/high/ultra enable
+it automatically; compatibility can opt in without HDR or compute shaders.
+No scene game object is required. Set radius in scene units and inspect the
+feature's effective availability after the render frame:
+
+```lua
+assert(drp.set_runtime_overrides({ post = { gtao = true, gtao_radius = 0.5 } }))
+local ao = drp.get_feature_diagnostics("gtao")
+```
+
+Diagnostics include `enabled`, `available`, `reason`, `width`, `height`,
+`raw_width`, `raw_height`, `quality`, `resolution`, `radius`, `intensity`,
+`power`, `bias`, `slices`, `steps`, `temporal`, `depth_format`, `ao_format`, and
+`estimated_target_bytes`. `temporal` is currently false. See
+[GTAO](../drp/features/gtao/README.md) for settings, requirements and limitations.

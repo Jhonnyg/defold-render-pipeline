@@ -1,0 +1,18 @@
+name: "drp_gtao"
+tags: "drp_gtao"
+vertex_program: "/drp/features/hdr/fullscreen.vp"
+fragment_program: "/drp/features/gtao/gtao.fp"
+vertex_space: VERTEX_SPACE_LOCAL
+fragment_constants { name: "gtao_inverse_projection" type: CONSTANT_TYPE_USER }
+fragment_constants { name: "gtao_projection" type: CONSTANT_TYPE_USER }
+fragment_constants { name: "gtao_depth_size" type: CONSTANT_TYPE_USER }
+fragment_constants { name: "gtao_target_size" type: CONSTANT_TYPE_USER }
+fragment_constants { name: "gtao_settings" type: CONSTANT_TYPE_USER }
+fragment_constants { name: "gtao_quality" type: CONSTANT_TYPE_USER }
+samplers {
+  name: "drp_scene_depth"
+  wrap_u: WRAP_MODE_CLAMP_TO_EDGE
+  wrap_v: WRAP_MODE_CLAMP_TO_EDGE
+  filter_min: FILTER_MODE_MIN_NEAREST
+  filter_mag: FILTER_MODE_MAG_NEAREST
+}

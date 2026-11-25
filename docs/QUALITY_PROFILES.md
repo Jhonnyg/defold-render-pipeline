@@ -124,3 +124,16 @@ fullscreen support or an unsupported floating-point target falls back to direct
 LDR while retaining the selected lighting profile. Strict capability mode requires an explicit positive
 `float_render_targets` capability; non-strict mode attempts allocation when it
 is unknown. The cluster heatmap always bypasses tone mapping.
+
+## Ambient occlusion settings
+
+`post.gtao` enables GTAO independently of HDR or the clustered path. Balanced,
+high and ultra enable it at half resolution, with medium/high/ultra sampling
+budgets respectively. Compatibility defaults to off and can opt in. Set
+`gtao_radius` in scene units; `gtao_intensity`, `gtao_power`, `gtao_bias`,
+`gtao_quality` and `gtao_resolution` control appearance and cost.
+
+The feature falls back to unoccluded ambient lighting when float targets or
+native fullscreen submission are unavailable, without changing the effective
+lighting profile. It is bypassed in cluster-debug mode. See
+[GTAO settings and availability](../drp/features/gtao/README.md).

@@ -13,6 +13,7 @@
 #include "/drp/shaders/clustered_pbr.glsl"
 #endif
 #include "/drp/shaders/output.glsl"
+#include "/drp/shaders/ambient_occlusion.glsl"
 
 out vec4 out_fragColor;
 
@@ -43,6 +44,9 @@ void main()
 #endif
         lighting.indirect = pbr_evaluate_ambient_lighting(material, ambient_light());
     }
-    vec3 color = pbr_compose_lighting(inputs, lighting, inputs.occlusion, inputs.occlusion);
+    // Material AO and screen-space visibility affect indirect light only.
+    // Direct lights, emission and unlit base color keep the engine's behavior.
+    float visibility = inputs.occlusion * drp_ambient_visibility(surface.position);
+    vec3 color = pbr_compose_lighting(inputs, lighting, visibility, visibility);
     out_fragColor = vec4(drp_output(color), pbr_get_alpha(inputs));
 }
