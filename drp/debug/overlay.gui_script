@@ -6,6 +6,10 @@ local config = require("drp.internal.config")
 local VIEWS_BEGIN = hash("drp_debug_views_begin")
 local VIEW = hash("drp_debug_view")
 local VIEWS_END = hash("drp_debug_views_end")
+local PROFILES_BEGIN = hash("drp_debug_profiles_begin")
+local PROFILE = hash("drp_debug_profile")
+local PROFILES_END = hash("drp_debug_profiles_end")
+local QUALITY_ERROR = hash("drp_debug_quality_error")
 local STATUS = hash("drp_debug_status")
 local CONTROLS_BEGIN = hash("drp_debug_controls_begin")
 local CONTROL = hash("drp_debug_control")
@@ -32,9 +36,11 @@ local COMMANDS = {
 }
 
 local PANEL_WIDTH = 366
-local ROW_TOP = 198
-local VIEW_PAGE_SIZE = 6
-local VIEW_ROW_HEIGHT = 26
+local ROW_TOP = 252
+local SELECTOR_X = 84
+local SELECTOR_WIDTH = PANEL_WIDTH - SELECTOR_X - 14
+local PAGE_SIZE = 6
+local CHOICE_HEIGHT = 26
 local ROW_HEIGHT = 42
 local TRACK_WIDTH = 290
 local POLL_INTERVAL = 0.5
@@ -54,6 +60,7 @@ local function request_status()
 	-- and values come from the renderer, never from a GUI-local DRP module.
 	send("status")
 	send("views")
+	send("profiles")
 	send("controls")
 end
 
@@ -165,7 +172,9 @@ local function fit_note(self, note)
 end
 
 local function update_feature_note(self)
-	local note = self.error or "Changes apply immediately. R restores a value."
+	local note = self.error or (self.quality_overridden
+		and "Runtime overrides remain active. R restores a value."
+		or "Changes apply immediately. R restores a value.")
 	if not self.error then
 		for _, row in ipairs(self.rows) do
 			local control = self.controls[row.id]
@@ -188,61 +197,61 @@ local function clear_nodes(nodes)
 	end
 end
 
-local function update_view_choices(self)
-	for _, choice in ipairs(self.view_choices) do
-		local selected = choice.id == self.selected_view
+local function update_choices(selector)
+	for _, choice in ipairs(selector.choices) do
+		local selected = choice.id == selector.selected
 		gui.set_color(choice.node, selected and vmath.vector4(0.14, 0.31, 0.45, 1) or BUTTON)
 	end
 end
 
-local function rebuild_view_choices(self)
-	self.view_choices = {}
-	gui.set_text(self.view_arrow, self.view_open and "^" or "v")
-	local first = (self.view_page - 1) * VIEW_PAGE_SIZE + 1
-	local count = self.view_open and math.min(VIEW_PAGE_SIZE, #self.views - first + 1) or 0
-	local paged = self.view_open and #self.views > VIEW_PAGE_SIZE
-	gui.set_enabled(self.view_popup, self.view_open)
-	gui.set_size(self.view_popup, vmath.vector3(PANEL_WIDTH - 84,
-		math.max(0, count * VIEW_ROW_HEIGHT + (paged and VIEW_ROW_HEIGHT or 0) - 2), 0))
+local function rebuild_choices(selector)
+	selector.choices = {}
+	gui.set_text(selector.arrow, selector.open and "^" or "v")
+	local first = (selector.page - 1) * PAGE_SIZE + 1
+	local count = selector.open and math.min(PAGE_SIZE, #selector.items - first + 1) or 0
+	local paged = selector.open and #selector.items > PAGE_SIZE
+	gui.set_enabled(selector.popup, selector.open)
+	gui.set_size(selector.popup, vmath.vector3(SELECTOR_WIDTH,
+		math.max(0, count * CHOICE_HEIGHT + (paged and CHOICE_HEIGHT or 0) - 2), 0))
 
 	-- Reuse the small set of option nodes. Defold defers node deletion, so
 	-- repeatedly allocating during input can exhaust the GUI node pool.
-	for slot = 1, VIEW_PAGE_SIZE do
-		local item = self.view_pool[slot]
+	for slot = 1, PAGE_SIZE do
+		local item = selector.pool[slot]
 		if slot <= count then
-			local view = self.views[first + slot - 1]
+			local option = selector.items[first + slot - 1]
 			if not item then
-				local node, label = button(self.view_popup, 0, (slot - 1) * VIEW_ROW_HEIGHT, PANEL_WIDTH - 84, "")
+				local node, label = button(selector.popup, 0, (slot - 1) * CHOICE_HEIGHT, SELECTOR_WIDTH, "")
 				item = { node = node, label = label }
-				self.view_pool[slot] = item
+				selector.pool[slot] = item
 			end
-			gui.set_text(item.label, view.label)
-			self.view_choices[#self.view_choices + 1] = { id = view.id, node = item.node }
+			gui.set_text(item.label, option.label)
+			selector.choices[#selector.choices + 1] = { id = option.id, node = item.node }
 		end
 		if item then
 			gui.set_enabled(item.node, slot <= count)
 		end
 	end
 
-	if paged and not self.view_previous then
-		self.view_previous = button(self.view_popup, 0, 0, 34, "<")
-		self.view_page_label = text(self.view_popup, 46, 0, "")
-		self.view_next = button(self.view_popup, PANEL_WIDTH - 118, 0, 34, ">")
+	if paged and not selector.previous then
+		selector.previous = button(selector.popup, 0, 0, 34, "<")
+		selector.page_label = text(selector.popup, 46, 0, "")
+		selector.next = button(selector.popup, SELECTOR_WIDTH - 34, 0, 34, ">")
 	end
-	if self.view_previous then
-		gui.set_enabled(self.view_previous, paged)
-		gui.set_enabled(self.view_next, paged)
-		gui.set_enabled(self.view_page_label, paged)
-		local y = count * VIEW_ROW_HEIGHT
-		local pages = math.ceil(#self.views / VIEW_PAGE_SIZE)
-		gui.set_position(self.view_previous, vmath.vector3(0, -y, 0))
-		gui.set_position(self.view_next, vmath.vector3(PANEL_WIDTH - 118, -y, 0))
-		gui.set_position(self.view_page_label, vmath.vector3(46, -y - 4, 0))
-		gui.set_text(self.view_page_label, string.format("Page %d / %d", self.view_page, pages))
-		gui.set_color(self.view_previous, self.view_page > 1 and BUTTON or MUTED)
-		gui.set_color(self.view_next, self.view_page < pages and BUTTON or MUTED)
+	if selector.previous then
+		gui.set_enabled(selector.previous, paged)
+		gui.set_enabled(selector.next, paged)
+		gui.set_enabled(selector.page_label, paged)
+		local y = count * CHOICE_HEIGHT
+		local pages = math.ceil(#selector.items / PAGE_SIZE)
+		gui.set_position(selector.previous, vmath.vector3(0, -y, 0))
+		gui.set_position(selector.next, vmath.vector3(SELECTOR_WIDTH - 34, -y, 0))
+		gui.set_position(selector.page_label, vmath.vector3(46, -y - 4, 0))
+		gui.set_text(selector.page_label, string.format("Page %d / %d", selector.page, pages))
+		gui.set_color(selector.previous, selector.page > 1 and BUTTON or MUTED)
+		gui.set_color(selector.next, selector.page < pages and BUTTON or MUTED)
 	end
-	update_view_choices(self)
+	update_choices(selector)
 end
 
 local function layout_controls(self)
@@ -251,7 +260,7 @@ local function layout_controls(self)
 	local row_top = ROW_TOP + math.max(0, math.ceil(#self.features / columns) - 1) * 30
 	for index, tab in ipairs(self.tabs) do
 		local x = 14 + (index - 1) % columns * (tab_width + 6)
-		local y = 159 + math.floor((index - 1) / columns) * 30
+		local y = 213 + math.floor((index - 1) / columns) * 30
 		gui.set_position(tab.node, vmath.vector3(x, -y, 0))
 	end
 	for index, row in ipairs(self.rows) do
@@ -322,79 +331,124 @@ local function rebuild_controls(self)
 	update_feature_note(self)
 	-- Keep the whole popup above newly rebuilt controls. A sibling reference
 	-- preserves its panel parent, including the panel's scale and visibility.
-	gui.move_above(self.view_popup, self.feature_note)
+	for _, selector in ipairs(self.selectors) do
+		gui.move_above(selector.popup, self.feature_note)
+	end
 end
 
-local function set_view_open(self, open)
-	self.view_open = open and #self.views > 0
-	self.drag = nil
-	if self.view_open then
-		-- Open on the selected view's page, including after F2/F3 navigation.
-		for index, view in ipairs(self.views) do
-			if view.id == self.selected_view then
-				self.view_page = math.floor((index - 1) / VIEW_PAGE_SIZE) + 1
-				break
-			end
+local function close_selectors(self)
+	for _, selector in ipairs(self.selectors) do
+		if selector.open then
+			selector.open = false
+			rebuild_choices(selector)
 		end
 	end
-	rebuild_view_choices(self)
 end
 
-local function accept_views(self, message)
-	local incoming = self.incoming_views
+local function open_selector(self, selector)
+	close_selectors(self)
+	self.drag = nil
+	selector.open = #selector.items > 0
+	-- Open on the selected item's page, including after external changes.
+	for index, item in ipairs(selector.items) do
+		if item.id == selector.selected then
+			selector.page = math.floor((index - 1) / PAGE_SIZE) + 1
+			break
+		end
+	end
+	rebuild_choices(selector)
+end
+
+local function accept_choices(selector, message)
+	local incoming = selector.incoming
 	if not incoming or incoming.frame ~= message.frame or incoming.invalid
-		or #incoming.views ~= incoming.count then
-		self.incoming_views = nil
+		or #incoming.items ~= incoming.count then
+		selector.incoming = nil
 		return
 	end
-	local changed = #self.views ~= #incoming.views
-	for index, view in ipairs(incoming.views) do
-		local previous = self.views[index]
-		changed = changed or not previous or previous.id ~= view.id or previous.label ~= view.label
+	local changed = #selector.items ~= #incoming.items
+	for index, item in ipairs(incoming.items) do
+		local previous = selector.items[index]
+		changed = changed or not previous or previous.id ~= item.id or previous.label ~= item.label
 	end
-	self.views = incoming.views
-	self.incoming_views = nil
+	selector.items = incoming.items
+	selector.incoming = nil
 	if changed then
-		self.view_page = math.min(self.view_page, math.max(1, math.ceil(#self.views / VIEW_PAGE_SIZE)))
-		if #self.views == 0 then
-			self.view_open = false
+		selector.page = math.min(selector.page, math.max(1, math.ceil(#selector.items / PAGE_SIZE)))
+		if #selector.items == 0 then
+			selector.open = false
 		end
-		rebuild_view_choices(self)
+		rebuild_choices(selector)
 	end
 end
 
-local function click_view_selector(self, action)
-	if gui.pick_node(self.view_selector, action.x, action.y) then
-		set_view_open(self, not self.view_open)
-		return true
+local function receive_choice(selector, message)
+	local incoming = selector.incoming
+	if not incoming then
+		return
 	end
-	if not self.view_open then
-		return false
+	if type(message.id) ~= "string" or type(message.label) ~= "string" or incoming.seen[message.id] then
+		incoming.invalid = true
+	else
+		incoming.items[#incoming.items + 1] = message
+		incoming.seen[message.id] = true
 	end
-	for _, choice in ipairs(self.view_choices) do
+end
+
+local function click_open_selector(self, selector, action)
+	if gui.pick_node(selector.button, action.x, action.y) then
+		close_selectors(self)
+		return
+	end
+	for _, choice in ipairs(selector.choices) do
 		if gui.pick_node(choice.node, action.x, action.y) then
-			local id = choice.id
-			set_view_open(self, false)
-			send("set", { view = id })
-			return true
+			close_selectors(self)
+			self.error = nil
+			update_feature_note(self)
+			send(selector.command, { [selector.field] = choice.id })
+			return
 		end
 	end
 	for _, page in ipairs({
-		{ node = self.view_previous, step = -1 },
-		{ node = self.view_next, step = 1 },
+		{ node = selector.previous, step = -1 },
+		{ node = selector.next, step = 1 },
 	}) do
-		if #self.views > VIEW_PAGE_SIZE and page.node and gui.pick_node(page.node, action.x, action.y) then
-			self.view_page = clamp(self.view_page + page.step, 1, math.ceil(#self.views / VIEW_PAGE_SIZE))
-			rebuild_view_choices(self)
+		if #selector.items > PAGE_SIZE and page.node and gui.pick_node(page.node, action.x, action.y) then
+			selector.page = clamp(selector.page + page.step, 1, math.ceil(#selector.items / PAGE_SIZE))
+			rebuild_choices(selector)
+			return
+		end
+	end
+	if not gui.pick_node(selector.popup, action.x, action.y) then
+		close_selectors(self)
+	end
+end
+
+local function click_selectors(self, action)
+	-- The open popup gets first refusal, even over the other selector's
+	-- button. Dismissal is consumed instead of activating a covered control.
+	for _, selector in ipairs(self.selectors) do
+		if selector.open then
+			click_open_selector(self, selector, action)
 			return true
 		end
 	end
-	if gui.pick_node(self.view_popup, action.x, action.y) then
-		return true
+	for _, selector in ipairs(self.selectors) do
+		if gui.pick_node(selector.button, action.x, action.y) then
+			open_selector(self, selector)
+			return true
+		end
 	end
-	-- Consume dismissal clicks so covered controls never receive a popup click.
-	set_view_open(self, false)
-	return true
+	return false
+end
+
+local function selector_is_open(self)
+	for _, selector in ipairs(self.selectors) do
+		if selector.open then
+			return true
+		end
+	end
+	return false
 end
 
 local function accept_controls(self)
@@ -473,7 +527,7 @@ local function drag_value(self, row, action)
 end
 
 local function click_controls(self, action)
-	if click_view_selector(self, action) then
+	if click_selectors(self, action) then
 		return
 	end
 	for _, tab in ipairs(self.tabs) do
@@ -524,6 +578,23 @@ local function click_controls(self, action)
 	end
 end
 
+local function create_selector(self, label, y, command, field)
+	local selector = {
+		items = {}, pool = {}, choices = {}, page = 1, open = false,
+		command = command, field = field,
+	}
+	text(self.panel, 14, y + 6, label, MUTED)
+	selector.button = button(self.panel, SELECTOR_X, y, SELECTOR_WIDTH, "")
+	selector.value = text(selector.button, 7, 4, "Connecting...", ACCENT, SELECTOR_WIDTH - 36)
+	selector.arrow = text(selector.button, SELECTOR_WIDTH - 20, 4, "v", ACCENT, 16)
+	-- Opaque backgrounds also cover the gaps between options. Opening or
+	-- paging these popups never changes the panel's geometry.
+	selector.popup = box(self.panel, SELECTOR_X, y + 28, SELECTOR_WIDTH, 0,
+		vmath.vector4(0.065, 0.085, 0.12, 1))
+	gui.set_enabled(selector.popup, false)
+	return selector
+end
+
 local function create_panel(self)
 	self.panel = gui.new_box_node(vmath.vector3(12, gui.get_height() - 12, 0), vmath.vector3(PANEL_WIDTH, 250, 0))
 	gui.set_pivot(self.panel, gui.PIVOT_NW)
@@ -531,27 +602,36 @@ local function create_panel(self)
 	gui.set_yanchor(self.panel, gui.ANCHOR_TOP)
 	gui.set_color(self.panel, vmath.vector4(0.025, 0.035, 0.055, 0.94))
 	text(self.panel, 14, 12, "DRP DEBUG                         F1 hide")
-	text(self.panel, 14, 42, "View", MUTED)
-	self.view_selector = button(self.panel, 70, 36, PANEL_WIDTH - 84, "")
-	self.mode = text(self.view_selector, 7, 4, "Connecting...", ACCENT, PANEL_WIDTH - 120)
-	self.view_arrow = text(self.view_selector, PANEL_WIDTH - 104, 4, "v", ACCENT, 16)
-	self.status = text(self.panel, 14, 66, "Waiting for debug status")
-	self.description = text(self.panel, 14, 88, "")
+	self.quality_selector = create_selector(self, "Quality", 36, "set_quality", "quality")
+	self.quality_status = text(self.panel, 14, 66, "Waiting for quality status", MUTED)
+	self.view_selector = create_selector(self, "View", 90, "set", "view")
+	self.selectors = { self.quality_selector, self.view_selector }
+	self.status = text(self.panel, 14, 120, "Waiting for debug status")
+	self.description = text(self.panel, 14, 142, "")
 	gui.set_size(self.description, vmath.vector3(PANEL_WIDTH - 28, 38, 0))
 	gui.set_line_break(self.description, true)
 	gui.set_leading(self.description, 1.15)
-	self.shortcuts = text(self.panel, 14, 132, "F2 next  F3 previous  F4 normal")
-	-- An opaque popup covers the controls, including gaps between options,
-	-- without changing the panel's layout or scale when opened or paged.
-	self.view_popup = box(self.panel, 70, 64, PANEL_WIDTH - 84, 0, vmath.vector4(0.065, 0.085, 0.12, 1))
-	gui.set_enabled(self.view_popup, false)
+	self.shortcuts = text(self.panel, 14, 186, "F2 next  F3 previous  F4 normal")
 	rebuild_controls(self)
 end
 
 local function update_status(self, message)
-	self.selected_view = message.view
-	update_view_choices(self)
-	gui.set_text(self.mode, message.label or message.view or "Normal rendering")
+	self.view_selector.selected = message.view
+	update_choices(self.view_selector)
+	gui.set_text(self.view_selector.value, message.label or message.view or "Normal rendering")
+	self.quality_selector.selected = message.requested_quality or message.quality
+	self.quality_overridden = message.quality_overridden == true
+	update_choices(self.quality_selector)
+	gui.set_text(self.quality_selector.value, (self.quality_selector.selected or "Unknown")
+		.. (self.quality_overridden and " *" or ""))
+	local quality_note = "Active: " .. (message.quality or "Unknown")
+	if message.pending_quality then
+		quality_note = quality_note .. " (pending)"
+	elseif self.quality_selector.selected ~= message.quality then
+		quality_note = quality_note .. " (fallback)"
+	end
+	gui.set_text(self.quality_status, quality_note)
+	update_feature_note(self)
 	local status = message.available and "Ready" or "Unavailable"
 	if message.available and message.width and message.height and message.width > 0 and message.height > 0 then
 		status = string.format("Ready  |  %d x %d", message.width, message.height)
@@ -571,8 +651,6 @@ function init(self)
 	self.poll_time = 0
 	self.pending, self.controls, self.control_order, self.features = {}, {}, {}, {}
 	self.control_nodes, self.rows, self.tabs = {}, {}, {}
-	self.views, self.view_pool, self.view_choices = {}, {}, {}
-	self.view_page, self.selected_view = 1, "none"
 	gui.set_render_order(15)
 	create_panel(self)
 	msg.post(".", "acquire_input_focus")
@@ -609,18 +687,17 @@ end
 function on_message(self, message_id, message, sender)
 	if message_id == STATUS then
 		update_status(self, message)
-	elseif message_id == VIEWS_BEGIN then
-		self.incoming_views = { count = message.count, frame = message.frame, views = {}, seen = {} }
-	elseif message_id == VIEW and self.incoming_views then
-		local incoming = self.incoming_views
-		if type(message.id) ~= "string" or type(message.label) ~= "string" or incoming.seen[message.id] then
-			incoming.invalid = true
-		else
-			incoming.views[#incoming.views + 1] = message
-			incoming.seen[message.id] = true
-		end
-	elseif message_id == VIEWS_END then
-		accept_views(self, message)
+	elseif message_id == VIEWS_BEGIN or message_id == PROFILES_BEGIN then
+		local selector = message_id == VIEWS_BEGIN and self.view_selector or self.quality_selector
+		selector.incoming = { count = message.count, frame = message.frame, items = {}, seen = {} }
+	elseif message_id == VIEW or message_id == PROFILE then
+		receive_choice(message_id == VIEW and self.view_selector or self.quality_selector, message)
+	elseif message_id == VIEWS_END or message_id == PROFILES_END then
+		accept_choices(message_id == VIEWS_END and self.view_selector or self.quality_selector, message)
+	elseif message_id == QUALITY_ERROR then
+		self.error = "Quality: " .. message.reason
+		print("DRP debug quality: " .. message.reason)
+		update_feature_note(self)
 	elseif message_id == CONTROLS_BEGIN then
 		self.incoming = { count = message.count, order = {}, controls = {} }
 	elseif message_id == CONTROL and self.incoming then
@@ -664,7 +741,7 @@ function on_input(self, action_id, action)
 		if action_id == TOGGLE then
 			self.visible = not self.visible
 			self.drag = nil
-			set_view_open(self, false)
+			close_selectors(self)
 			gui.set_enabled(self.panel, self.visible)
 			if self.visible then
 				msg.post(".", "acquire_input_focus")
@@ -673,7 +750,7 @@ function on_input(self, action_id, action)
 			return true
 		end
 		if COMMANDS[action_id] then
-			set_view_open(self, false)
+			close_selectors(self)
 			send(COMMANDS[action_id])
 			return true
 		end
@@ -695,10 +772,10 @@ function on_input(self, action_id, action)
 		end
 		return true
 	end
-	if self.visible and self.view_open and POINTER[action_id] and action.pressed
+	if self.visible and selector_is_open(self) and POINTER[action_id] and action.pressed
 		and not gui.pick_node(self.panel, action.x, action.y) then
 		self.capture = action_id
-		set_view_open(self, false)
+		close_selectors(self)
 		return true
 	end
 	if self.visible and POINTER[action_id] and action.pressed

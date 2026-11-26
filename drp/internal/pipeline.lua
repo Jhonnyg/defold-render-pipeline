@@ -270,10 +270,21 @@ local function reply_debug_status(context)
 	-- assume that the GUI and renderer share a Lua module instance.
 	local status = debug_views.get_state(context)
 	status.quality = state.active and state.active.effective or nil
-	local controls, views
+	status.requested_quality = M.get_requested_quality()
+	status.pending_quality = state.pending and state.pending.requested or nil
+	status.quality_overridden = next(state.runtime_overrides) ~= nil
+	local controls, views, profiles
 	for _, request in pairs(state.debug_requesters) do
 		local sender = request.sender
 		msg.post(sender, "drp_debug_status", status)
+		if request.profiles then
+			profiles = profiles or quality.get_names()
+			msg.post(sender, "drp_debug_profiles_begin", { count = #profiles, frame = context.frame })
+			for _, name in ipairs(profiles) do
+				msg.post(sender, "drp_debug_profile", { id = name, label = name })
+			end
+			msg.post(sender, "drp_debug_profiles_end", { frame = context.frame })
+		end
 		if request.views then
 			views = views or debug_views.get_views()
 			msg.post(sender, "drp_debug_views_begin", { count = #views, frame = context.frame })
@@ -294,6 +305,9 @@ local function reply_debug_status(context)
 		end
 		for _, err in pairs(request.errors or {}) do
 			msg.post(sender, "drp_debug_control_error", err)
+		end
+		if request.quality_error then
+			msg.post(sender, "drp_debug_quality_error", request.quality_error)
 		end
 	end
 	state.debug_requesters = {}
@@ -335,6 +349,9 @@ local function debug_command(message, sender)
 	local command = message.command
 	local controls = false
 	local views = false
+	local profiles = false
+	local quality_changed = false
+	local quality_error
 	local control_error
 	local control_error_key
 	local control_changed = false
@@ -357,6 +374,19 @@ local function debug_command(message, sender)
 		end
 	elseif command == "views" then
 		views = true
+	elseif command == "profiles" then
+		profiles = true
+	elseif command == "set_quality" then
+		-- Use the same validation, fallback and frame-boundary transition as
+		-- the public API. Profile-independent runtime overrides stay intact.
+		profiles, controls, quality_changed = true, true, true
+		local ok, err = M.set_quality(message.quality)
+		if not ok then
+			quality_error = {
+				quality = type(message.quality) == "string" and bounded_debug_text(message.quality, 128) or "",
+				reason = bounded_debug_text(err, 768),
+			}
+		end
 	elseif command == "controls" then
 		controls = true
 	elseif command == "set_control" or command == "reset_control" or command == "reset_feature" then
@@ -385,6 +415,10 @@ local function debug_command(message, sender)
 		local request = state.debug_requesters[key] or { sender = sender }
 		request.controls = request.controls or controls
 		request.views = request.views or views
+		request.profiles = request.profiles or profiles
+		if quality_changed then
+			request.quality_error = quality_error
+		end
 		if control_changed then
 			request.errors = request.errors or {}
 			request.errors[control_error_key] = control_error

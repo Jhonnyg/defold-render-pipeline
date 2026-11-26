@@ -104,6 +104,13 @@ Lua contexts work. Selection becomes active at the next frame boundary; status
 replies are sent after rendering. The [debug README](../debug/README.md) documents
 commands and reusable collection/input setup.
 
+The same transport exposes the renderer's quality-profile registry through
+`profiles` and queues tier changes through `set_quality`. This calls the existing
+pipeline quality API, preserving runtime overrides, validation, capability
+fallback and frame-boundary activation. Status reports requested, pending and
+effective quality separately. The GUI shares a paged popup implementation between
+quality and view selection; it never loads a GUI-local quality registry.
+
 ## Live feature controls
 
 Features publish general `get_properties()` schemas; see the

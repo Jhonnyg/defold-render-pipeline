@@ -123,6 +123,10 @@ checkboxes, sliders, and choices for AO, HDR, and clustered lighting. Control
 edits update runtime overrides; per-control and per-feature resets restore the
 profile's settings without clearing unrelated overrides.
 
+The **Quality** selector switches between registered profiles and shows the
+effective tier after capability fallback. Runtime overrides survive tier changes;
+a `*` beside the profile name indicates active overrides.
+
 Reuse `/drp/debug/debug.collection` in other scenes and merge its input actions
 into your project's bindings. The renderer draws the panel and texture views
 after tone mapping. See [debug setup and controls](drp/debug/README.md), including

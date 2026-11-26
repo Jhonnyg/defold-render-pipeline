@@ -29,6 +29,25 @@ activate the controls underneath.
 
 The panel reports the selected view, its availability, and texture dimensions.
 
+## Quality selection
+
+The **Quality** selector switches between registered quality profiles, including
+project profiles registered in the renderer's Lua context. Its choices come
+from the renderer, so the GUI does not maintain its own list of tiers. The
+built-in profiles are `compatibility`, `balanced`, `high`, and `ultra`.
+
+The selector shows the requested profile. **Active** shows the effective profile
+after capability fallback; changes apply at the next frame boundary and refresh
+the feature controls. Selecting a profile does not add excluded features or
+change the selected debug view.
+
+Runtime overrides survive profile changes, including tweaks made through the
+panel. A `*` beside the profile name indicates that overrides are present. Use
+the existing per-control or per-feature reset buttons to restore that profile's
+values. A rejected request leaves the current settings intact and shows its
+error in the panel footer. Both selectors float above the controls, and only one
+can be open at a time.
+
 ## Live controls
 
 Tabs are generated from the renderer's included features and their property
@@ -137,7 +156,10 @@ msg.post("@render:", "drp_debug_command", {
 The renderer replies to the sender with `drp_debug_status`, including the selected `view`, `label`,
 `available`, `reason`, and `description`. Views can also report `width` and `height`.
 
-The panel requests status, views, and controls on startup and every half-second
+Status also includes `requested_quality`, `quality` (the active effective
+profile), optional `pending_quality`, and `quality_overridden`.
+
+The panel requests status, profiles, views, and controls on startup and every half-second
 while visible. A `views` reply streams `drp_debug_views_begin` (`count`, `frame`),
 one `drp_debug_view` per descriptor (`id`, `label`, `description`, `kind`, optional
 `feature`), then `drp_debug_views_end` (`frame`). The GUI accepts only a complete
@@ -149,6 +171,25 @@ Descriptors carry IDs, feature names, labels, types, ranges or choices, current
 values, override state, feature availability, and `editable`. The UI disables
 editing when `editable == false`. The GUI does not contain
 feature-specific settings paths.
+
+Request `profiles` to receive `drp_debug_profiles_begin` (`count`, `frame`), one
+`drp_debug_profile` per registered name (`id`, `label`), and
+`drp_debug_profiles_end` (`frame`). This uses the same complete-list validation
+and pagination as views. Register or unregister profiles in the renderer's
+context; the next poll updates the dropdown.
+
+Select a tier with the same validation, fallback, and override-preserving behavior
+as `drp.set_quality()`:
+
+```lua
+msg.post("@render:", "drp_debug_command", {
+    command = "set_quality", quality = "high",
+})
+```
+
+The renderer replies with status, the profile catalog, and refreshed controls
+after rendering. Rejected requests also return `drp_debug_quality_error` with
+`quality` and `reason`. Error text is bounded to fit a Defold message.
 
 Control commands use the same `drp_debug_command` message:
 
