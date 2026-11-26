@@ -195,8 +195,9 @@ end
 ---@param requested string
 ---@param detected table
 ---@param settings_overrides table|nil Settings applied before requirement validation.
+---@param property_defaults table|nil Feature defaults beneath profile and platform settings.
 ---@return table|nil, string|nil
-function M.resolve(requested, detected, settings_overrides)
+function M.resolve(requested, detected, settings_overrides, property_defaults)
 	detected = detected or capabilities.detect()
 	local attempted = {}
 	local reasons = {}
@@ -212,6 +213,7 @@ function M.resolve(requested, detected, settings_overrides)
 		if not profile then
 			return nil, err
 		end
+		profile.settings = utils.merge(utils.copy(property_defaults or {}), profile.settings)
 		apply_platform_override(profile, detected.platform or "unknown")
 		utils.merge(profile.settings, settings_overrides or {})
 

@@ -13,3 +13,4 @@ render_resources { name: "drp_gtao_depth_opaque" path: "/drp/features/gtao/depth
 render_resources { name: "drp_gtao_depth_mask" path: "/drp/features/gtao/depth_mask.material" }
 render_resources { name: "drp_gtao" path: "/drp/features/gtao/gtao.material" }
 render_resources { name: "drp_gtao_blur" path: "/drp/features/gtao/blur.material" }
+render_resources { name: "drp_debug_view" path: "/drp/debug/view.material" }

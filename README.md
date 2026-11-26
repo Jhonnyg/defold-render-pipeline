@@ -111,6 +111,33 @@ The runnable [Sponza clustered-shading example](examples/README.md) is the
 default bootstrap collection. Smaller cluster-assignment and quality API
 examples remain available for focused testing.
 
+## Debug views
+
+The Sponza and clustered examples include a shared debug panel: **F1** shows or
+hides it, the **View** selector chooses a specific view, **F2/F3** cycle views,
+and **F4** restores normal rendering. Available views are filtered AO, raw AO, scene depth, and clustered-light occupancy.
+AO views show visibility directly: white is unoccluded, dark is occluded.
+An unavailable view reports why; selecting it does not enable a disabled feature
+or change runtime overrides. The panel also provides feature tabs with live
+checkboxes, sliders, and choices for AO, HDR, and clustered lighting. Control
+edits update runtime overrides; per-control and per-feature resets restore the
+profile's settings without clearing unrelated overrides.
+
+Reuse `/drp/debug/debug.collection` in other scenes and merge its input actions
+into your project's bindings. The renderer draws the panel and texture views
+after tone mapping. See [debug setup and controls](drp/debug/README.md), including
+the message API for selecting views without the panel.
+
+### Project-specific feature controls
+
+The debug panel builds its tabs and widgets from each included feature's property
+schema. Custom features can supply properties and debug views without changing
+the UI. Select modules once in render-script initialization; included features
+can still be toggled and adjusted at runtime. See
+[feature selection and properties](drp/features/README.md#selecting-features-in-a-project)
+for custom pipeline setup and matching render-resource dependencies.
+
+
 ## Project configuration
 
 ```ini

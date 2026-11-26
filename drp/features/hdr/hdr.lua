@@ -1,7 +1,7 @@
 local resources = require("drp.internal.resources")
 local native = require("drp.internal.native")
 
-local M = { name = "hdr" }
+local M = { name = "hdr", label = "HDR", requirements = { "float_render_targets" } }
 
 local state = {
 	enabled = false,
@@ -42,8 +42,13 @@ local function unavailable_reason(context, width, height)
 		return "native fullscreen rendering is unavailable"
 	end
 	
+	if context.debug and context.debug.bypass_post then
+		return "scene debug view bypass"
+	end
 	local lighting = context.profile.settings.lighting or {}
-	if lighting.cluster_debug == true then
+	local debug_view = context.debug and context.debug.view
+	local explicit_debug_view = debug_view and debug_view ~= "none"
+	if not explicit_debug_view and lighting.cluster_debug == true then
 		return "cluster debug bypass"
 	end
 	
@@ -181,6 +186,24 @@ function M.render_after_scene(context, pass)
 	render.disable_material()
 	render.disable_texture("texture0")
 	state.presented_pass = pass
+end
+
+function M.get_properties()
+	return {
+		{
+			id = "enabled", type = "boolean",
+			ui = { label = "Enabled" },
+			diagnostic_key = "enabled",
+			path = "rendering.hdr", default = false,
+		},
+		{
+			id = "exposure", type = "number",
+			ui = { label = "Exposure (EV)", min = -16, max = 16, step = 0.25 },
+			diagnostic_key = "exposure",
+			path = "rendering.hdr_exposure", default = 0,
+			limits = { min = -16, max = 16 },
+		},
+	}
 end
 
 function M.get_diagnostics()

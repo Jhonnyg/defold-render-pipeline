@@ -5,6 +5,8 @@ local requirements = require("drp.features.clustered.requirements")
 
 local M = {}
 M.name = "clustered"
+M.label = "Clustered"
+M.requirements = { "compute_shaders", "storage_buffers", "clustered_resources" }
 
 local MAX_SHADER_LIGHTS = config.shader_light_capacity
 local MAX_LIGHTS_PER_CLUSTER = config.max_lights_per_cluster
@@ -80,6 +82,7 @@ end
 local function reset_allocations()
 	delete_buffers()
 	state.available = false
+	state.debug_pass, state.debug_frame = nil, nil
 	state.width = 0
 	state.height = 0
 	state.grid_x = 0
@@ -281,7 +284,13 @@ local function make_constants(context, common, view, projection, near_z, far_z)
 	)
 	common.cluster_z_params = vmath.vector4(near_z, far_z, 0, 0)
 	local lighting = context.profile.settings.lighting or {}
-	common.cluster_debug = vmath.vector4(lighting.cluster_debug == false and 0 or 1, 0, 0, 0)
+	local debug_view = context.debug and context.debug.view
+	local explicit_debug_view = debug_view and debug_view ~= "none"
+	-- A shared view takes precedence without changing the legacy override.
+	-- Returning to the scene restores any explicitly configured heatmap.
+	local debug_enabled = debug_view == "clustered.occupancy"
+		or (not explicit_debug_view and lighting.cluster_debug ~= false)
+	common.cluster_debug = vmath.vector4(debug_enabled and 1 or 0, 0, 0, 0)
 
 	local build = render.constant_buffer()
 	build.inverse_projection = vmath.inv(projection)
@@ -425,6 +434,10 @@ function M.resize(context, width, height)
 	end
 end
 
+function M.begin_frame()
+	state.debug_pass, state.debug_frame = nil, nil
+end
+
 function M.prepare_scene(context, pass)
 	if not state.render_available or not state.enabled or not state.available then
 		return
@@ -456,6 +469,10 @@ function M.prepare_scene(context, pass)
 	build_clusters(build, assign)
 
 	pass.lighting_path = "clustered"
+	if pass.constants.cluster_debug.x == 1 then
+		state.debug_pass = pass
+		state.debug_frame = context.frame
+	end
 	for _, descriptor in ipairs(BUFFER_DESCRIPTORS) do
 		pass.storage_buffers[#pass.storage_buffers + 1] = {
 			handle = state.buffers[descriptor.name],
@@ -465,11 +482,95 @@ function M.prepare_scene(context, pass)
 	end
 end
 
+function M.get_properties()
+	return {
+		{
+			id = "enabled", type = "boolean",
+			ui = { label = "Clustered lighting" },
+			diagnostic_key = "enabled",
+			path = "rendering.path", default = false,
+			on_value = "forward_plus", off_value = "forward",
+		},
+		{
+			id = "tile_size", type = "number",
+			ui = { label = "Tile size (pixels)", min = 32, max = 256, step = 8 },
+			diagnostic_key = "tile_size",
+			path = "lighting.cluster_tile_size", default = 96,
+			limits = { min = 8 },
+			integer = true,
+		},
+		{
+			id = "z_slices", type = "number",
+			ui = { label = "Depth slices", min = 1, max = 64, step = 1 },
+			diagnostic_key = "grid_z",
+			path = "lighting.cluster_z_slices", default = 16,
+			limits = { min = 1 },
+			integer = true,
+		},
+		{
+			id = "max_lights_per_cluster", type = "number",
+			ui = { label = "Lights per cluster", min = 1, max = MAX_LIGHTS_PER_CLUSTER, step = 1 },
+			diagnostic_key = "max_lights_per_cluster",
+			path = "lighting.max_lights_per_cluster", default = MAX_LIGHTS_PER_CLUSTER,
+			limits = { min = 1, max = MAX_LIGHTS_PER_CLUSTER },
+			integer = true,
+		},
+	}
+end
+
+function M.get_debug_views()
+	return {
+		{
+			id = "clustered.occupancy",
+			label = "Cluster occupancy",
+			description = "Lights per cluster and overflow, shown on scene geometry.",
+			kind = "scene",
+		},
+	}
+end
+
+function M.get_debug_source(context, id)
+	if id ~= "clustered.occupancy" then
+		return nil, "unknown clustered debug view"
+	end
+	if not state.enabled then
+		return nil, "clustered lighting is disabled"
+	end
+	if not state.render_available then
+		return nil, "render runtime unavailable"
+	end
+	if not state.available then
+		return nil, "clustered lighting resources unavailable"
+	end
+
+	-- Preparing buffers does not guarantee a scene was drawn. Availability is
+	-- tied to completion of the exact pass that selected the heatmap this frame.
+	local pass = state.debug_pass
+	if state.debug_frame ~= context.frame or not pass or not pass.rendered
+		or pass.lighting_path ~= "clustered" then
+		return nil, "cluster occupancy view was not rendered this frame"
+	end
+	return {
+		kind = "scene",
+		width = state.width,
+		height = state.height,
+	}
+end
+
 function M.get_diagnostics()
+	local reason
+	if not state.enabled then
+		reason = "Forward lighting active (up to 8 lights). Scene lights remain enabled."
+	elseif not state.render_available then
+		reason = "Render runtime unavailable."
+	elseif not state.available then
+		reason = "Clustered resources unavailable; using forward lighting."
+	end
 	local cluster_count = state.grid_x * state.grid_y * state.grid_z
 	return {
 		enabled = state.enabled,
 		available = state.available,
+		reason = reason,
 		grid_x = state.grid_x,
 		grid_y = state.grid_y,
 		grid_z = state.grid_z,

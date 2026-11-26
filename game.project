@@ -42,5 +42,10 @@ fallback_profile = compatibility
 strict_capabilities = 0
 
 [input]
-game_binding = /vantage/vantage.input_bindingc
+game_binding = /input/game.input_bindingc
 
+
+[drp_debug]
+pointer = VANTAGE_MOUSE_1
+pointer_secondary = VANTAGE_MOUSE_2
+pointer_middle = VANTAGE_MOUSE_3

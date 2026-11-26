@@ -1,0 +1,13 @@
+name: "drp_debug_view"
+tags: "drp_debug_view"
+vertex_program: "/drp/features/hdr/fullscreen.vp"
+fragment_program: "/drp/debug/view.fp"
+vertex_space: VERTEX_SPACE_LOCAL
+fragment_constants { name: "drp_debug_settings" type: CONSTANT_TYPE_USER }
+samplers {
+  name: "drp_debug_texture"
+  wrap_u: WRAP_MODE_CLAMP_TO_EDGE
+  wrap_v: WRAP_MODE_CLAMP_TO_EDGE
+  filter_min: FILTER_MODE_MIN_NEAREST
+  filter_mag: FILTER_MODE_MAG_NEAREST
+}

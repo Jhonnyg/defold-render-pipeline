@@ -1,0 +1,716 @@
+-- Copyright 2026 Jhonny Göransson
+-- Licensed under the MIT License.
+
+local config = require("drp.internal.config")
+
+local VIEWS_BEGIN = hash("drp_debug_views_begin")
+local VIEW = hash("drp_debug_view")
+local VIEWS_END = hash("drp_debug_views_end")
+local STATUS = hash("drp_debug_status")
+local CONTROLS_BEGIN = hash("drp_debug_controls_begin")
+local CONTROL = hash("drp_debug_control")
+local CONTROLS_END = hash("drp_debug_controls_end")
+local CONTROL_ERROR = hash("drp_debug_control_error")
+-- Projects map their existing actions in [drp_debug]; the reusable overlay
+-- does not depend on any particular camera controller or input-binding file.
+local function input_action(name, fallback)
+	return hash(config.string("drp_debug." .. name, fallback))
+end
+
+local TOGGLE = input_action("toggle", "drp_debug_toggle")
+local primary = input_action("pointer", "drp_debug_pointer")
+local PRIMARY = { [primary] = true }
+local POINTER = {
+	[primary] = true,
+	[input_action("pointer_secondary", "drp_debug_pointer_secondary")] = true,
+	[input_action("pointer_middle", "drp_debug_pointer_middle")] = true,
+}
+local COMMANDS = {
+	[input_action("next", "drp_debug_next")] = "next",
+	[input_action("previous", "drp_debug_previous")] = "previous",
+	[input_action("reset", "drp_debug_reset")] = "reset",
+}
+
+local PANEL_WIDTH = 366
+local ROW_TOP = 198
+local VIEW_PAGE_SIZE = 6
+local VIEW_ROW_HEIGHT = 26
+local ROW_HEIGHT = 42
+local TRACK_WIDTH = 290
+local POLL_INTERVAL = 0.5
+local TEXT = vmath.vector4(0.9, 0.93, 0.98, 1)
+local ACCENT = vmath.vector4(0.55, 0.8, 1, 1)
+local MUTED = vmath.vector4(0.59, 0.65, 0.74, 1)
+local BUTTON = vmath.vector4(0.13, 0.18, 0.25, 1)
+
+local function send(command, values)
+	values = values or {}
+	values.command = command
+	msg.post("@render:", "drp_debug_command", values)
+end
+
+local function request_status()
+	-- GUI and render scripts may run in separate Lua contexts. Descriptors
+	-- and values come from the renderer, never from a GUI-local DRP module.
+	send("status")
+	send("views")
+	send("controls")
+end
+
+local function box(parent, x, y, width, height, color)
+	local node = gui.new_box_node(vmath.vector3(x, -y, 0), vmath.vector3(width, height, 0))
+	gui.set_parent(node, parent)
+	gui.set_pivot(node, gui.PIVOT_NW)
+	gui.set_color(node, color or BUTTON)
+	gui.set_inherit_alpha(node, false)
+	return node
+end
+
+local function text(parent, x, y, value, color, width)
+	local node = gui.new_text_node(vmath.vector3(x, -y, 0), value)
+	gui.set_parent(node, parent)
+	gui.set_font(node, "default")
+	gui.set_material(node, "debug_font")
+	gui.set_pivot(node, gui.PIVOT_NW)
+	gui.set_size(node, vmath.vector3(width or PANEL_WIDTH - 28, 20, 0))
+	gui.set_color(node, color or TEXT)
+	gui.set_inherit_alpha(node, false)
+	return node
+end
+
+local function button(parent, x, y, width, label)
+	local node = box(parent, x, y, width, 24)
+	local label_node = text(node, 7, 4, label)
+	return node, label_node
+end
+
+local function clamp(value, minimum, maximum)
+	return math.min(maximum, math.max(minimum, value))
+end
+
+local function same_value(a, b)
+	if type(a) == "number" and type(b) == "number" then
+		return math.abs(a - b) <= 0.000001 * math.max(1, math.abs(a), math.abs(b))
+	end
+	return a == b
+end
+
+local function numeric_text(control, value)
+	local step = control.step or 0.01
+	local digits = 0
+	while not control.integer and digits < 4 and math.abs(step - math.floor(step + 0.5)) > 0.000001 do
+		digits = digits + 1
+		step = step * 10
+	end
+	local formatted = string.format("%." .. digits .. "f", value)
+	if not same_value(tonumber(formatted), value) then
+		-- Existing overrides need not lie on the interactive step grid.
+		return string.format("%.6g", value)
+	end
+	return formatted
+end
+
+local function fraction(control, value)
+	value = clamp(value, control.min, control.max)
+	if control.scale == "log" then
+		return math.log(value / control.min) / math.log(control.max / control.min)
+	end
+	return (value - control.min) / (control.max - control.min)
+end
+
+local function display_value(self, control)
+	local pending = self.pending[control.id]
+	if pending then
+		return pending.value
+	end
+	return control.value
+end
+
+local function update_row(self, row)
+	local control = self.controls[row.id]
+	local value = display_value(self, control)
+	local overridden = control.overridden or self.pending[row.id] ~= nil
+	gui.set_text(row.label, control.label .. (overridden and " *" or ""))
+	gui.set_color(row.label, control.editable == false and MUTED or TEXT)
+	gui.set_color(row.value, control.editable == false and MUTED or ACCENT)
+	gui.set_color(row.reset, overridden and BUTTON or vmath.vector4(0.065, 0.085, 0.12, 1))
+
+	if control.kind == "number" then
+		-- Keep external values visible even when they exceed the slider range.
+		-- Only the thumb is clamped; dragging submits a value in its UI range.
+		gui.set_text(row.value, numeric_text(control, value))
+		gui.set_position(row.thumb, vmath.vector3(fraction(control, value) * TRACK_WIDTH, 2, 0))
+	elseif control.kind == "boolean" then
+		gui.set_text(row.value, value and "[x] On" or "[ ] Off")
+	else
+		gui.set_text(row.value, tostring(value) .. " >")
+	end
+end
+
+local function fit_note(self, note)
+	local options = { width = PANEL_WIDTH - 28, line_break = true }
+	local prefix, suffix = note, ""
+	while #prefix > 0 do
+		local candidate = prefix .. suffix
+		local metrics = resource.get_text_metrics(self.font, candidate, options)
+		if metrics.height <= 36 and metrics.width <= options.width then
+			return candidate
+		end
+		-- Drop whole words when possible. The full message remains in self.error
+		-- and is logged; the fixed-height footer never covers another control.
+		prefix = prefix:match("^(.*)%s+%S+$") or prefix:sub(1, -2)
+		suffix = "..."
+	end
+	return suffix
+end
+
+local function update_feature_note(self)
+	local note = self.error or "Changes apply immediately. R restores a value."
+	if not self.error then
+		for _, row in ipairs(self.rows) do
+			local control = self.controls[row.id]
+			if control.feature_available == false then
+				note = control.feature_reason or "Feature currently unavailable."
+				break
+			elseif control.effective_value ~= nil and not same_value(control.value, control.effective_value) then
+				note = control.label .. " effective value: " .. tostring(control.effective_value)
+				break
+			end
+		end
+	end
+	gui.set_text(self.feature_note, fit_note(self, note))
+	gui.set_color(self.feature_note, self.error and vmath.vector4(1, 0.65, 0.4, 1) or MUTED)
+end
+
+local function clear_nodes(nodes)
+	for _, node in ipairs(nodes) do
+		gui.delete_node(node)
+	end
+end
+
+local function view_list_height(self)
+	if not self.view_open then
+		return 0
+	end
+	local count = math.min(VIEW_PAGE_SIZE, #self.views - (self.view_page - 1) * VIEW_PAGE_SIZE)
+	return count * VIEW_ROW_HEIGHT + (#self.views > VIEW_PAGE_SIZE and 28 or 0) + 8
+end
+
+local function update_view_choices(self)
+	for _, choice in ipairs(self.view_choices) do
+		local selected = choice.id == self.selected_view
+		gui.set_color(choice.node, selected and vmath.vector4(0.14, 0.31, 0.45, 1) or BUTTON)
+	end
+end
+
+local function rebuild_view_choices(self)
+	self.view_choices = {}
+	gui.set_text(self.view_arrow, self.view_open and "^" or "v")
+	local first = (self.view_page - 1) * VIEW_PAGE_SIZE + 1
+	local count = self.view_open and math.min(VIEW_PAGE_SIZE, #self.views - first + 1) or 0
+
+	-- Reuse the small set of option nodes. Defold defers node deletion, so
+	-- repeatedly allocating during input can exhaust the GUI node pool.
+	for slot = 1, VIEW_PAGE_SIZE do
+		local item = self.view_pool[slot]
+		if slot <= count then
+			local view = self.views[first + slot - 1]
+			if not item then
+				local node, label = button(self.panel, 70, 64 + (slot - 1) * VIEW_ROW_HEIGHT, PANEL_WIDTH - 84, "")
+				item = { node = node, label = label }
+				self.view_pool[slot] = item
+			end
+			gui.set_text(item.label, view.label)
+			self.view_choices[#self.view_choices + 1] = { id = view.id, node = item.node }
+		end
+		if item then
+			gui.set_enabled(item.node, slot <= count)
+		end
+	end
+
+	local paged = self.view_open and #self.views > VIEW_PAGE_SIZE
+	if paged and not self.view_previous then
+		self.view_previous = button(self.panel, 70, 0, 34, "<")
+		self.view_page_label = text(self.panel, 116, 0, "")
+		self.view_next = button(self.panel, PANEL_WIDTH - 48, 0, 34, ">")
+	end
+	if self.view_previous then
+		gui.set_enabled(self.view_previous, paged)
+		gui.set_enabled(self.view_next, paged)
+		gui.set_enabled(self.view_page_label, paged)
+		local y = 64 + count * VIEW_ROW_HEIGHT
+		local pages = math.ceil(#self.views / VIEW_PAGE_SIZE)
+		gui.set_position(self.view_previous, vmath.vector3(70, -y, 0))
+		gui.set_position(self.view_next, vmath.vector3(PANEL_WIDTH - 48, -y, 0))
+		gui.set_position(self.view_page_label, vmath.vector3(116, -y - 4, 0))
+		gui.set_text(self.view_page_label, string.format("Page %d / %d", self.view_page, pages))
+		gui.set_color(self.view_previous, self.view_page > 1 and BUTTON or MUTED)
+		gui.set_color(self.view_next, self.view_page < pages and BUTTON or MUTED)
+	end
+	update_view_choices(self)
+end
+
+local function layout_controls(self)
+	local offset = view_list_height(self)
+	gui.set_position(self.status, vmath.vector3(14, -66 - offset, 0))
+	gui.set_position(self.description, vmath.vector3(14, -88 - offset, 0))
+	gui.set_position(self.shortcuts, vmath.vector3(14, -132 - offset, 0))
+	local columns = math.max(1, math.min(3, #self.features))
+	local tab_width = (PANEL_WIDTH - 28 - 6 * (columns - 1)) / columns
+	local row_top = ROW_TOP + offset + math.max(0, math.ceil(#self.features / columns) - 1) * 30
+	for index, tab in ipairs(self.tabs) do
+		local x = 14 + (index - 1) % columns * (tab_width + 6)
+		local y = 159 + offset + math.floor((index - 1) / columns) * 30
+		gui.set_position(tab.node, vmath.vector3(x, -y, 0))
+	end
+	for index, row in ipairs(self.rows) do
+		gui.set_position(row.root, vmath.vector3(0, -row_top - (index - 1) * ROW_HEIGHT, 0))
+	end
+	local footer_y = row_top + #self.rows * ROW_HEIGHT + 4
+	gui.set_position(self.restore_feature, vmath.vector3(14, -footer_y, 0))
+	gui.set_position(self.feature_note, vmath.vector3(14, -footer_y - 32, 0))
+	local height = footer_y + 76
+	gui.set_size(self.panel, vmath.vector3(PANEL_WIDTH, height, 0))
+	local scale = math.min(1, (gui.get_height() - 24) / height, (gui.get_width() - 24) / PANEL_WIDTH)
+	gui.set_scale(self.panel, vmath.vector3(scale, scale, 1))
+end
+
+local function rebuild_controls(self)
+	clear_nodes(self.control_nodes)
+	self.control_nodes = {}
+	self.rows = {}
+	self.tabs = {}
+
+	local columns = math.max(1, math.min(3, #self.features))
+	local tab_width = (PANEL_WIDTH - 28 - 6 * (columns - 1)) / columns
+	for _, feature in ipairs(self.features) do
+		local node = button(self.panel, 0, 0, tab_width, feature.label)
+		gui.set_color(node, feature.id == self.active_feature and vmath.vector4(0.14, 0.31, 0.45, 1) or BUTTON)
+		self.tabs[#self.tabs + 1] = { node = node, feature = feature.id }
+		self.control_nodes[#self.control_nodes + 1] = node
+	end
+
+	for _, id in ipairs(self.control_order) do
+		local control = self.controls[id]
+		if control.feature == self.active_feature then
+			local root = box(self.panel, 0, 0, PANEL_WIDTH, ROW_HEIGHT, vmath.vector4(0, 0, 0, 0))
+			local row = { id = id, root = root }
+			row.label = text(root, 14, 3, control.label, TEXT, 200)
+			row.reset = button(root, 320, 0, 32, "R")
+			if control.kind == "number" then
+				row.value = text(root, 305, 3, "", ACCENT, 110)
+				gui.set_pivot(row.value, gui.PIVOT_NE)
+				row.track = box(root, 14, 27, TRACK_WIDTH, 5, vmath.vector4(0.22, 0.3, 0.39, 1))
+				row.hit = box(root, 14, 20, TRACK_WIDTH, 20, vmath.vector4(0, 0, 0, 0))
+				row.thumb = box(row.track, 0, -2, 8, 10, ACCENT)
+				gui.set_pivot(row.thumb, gui.PIVOT_N)
+			else
+				row.hit = box(root, 212, 0, 92, 24)
+				row.value = text(row.hit, 7, 4, "", ACCENT, 85)
+			end
+			self.rows[#self.rows + 1] = row
+			self.control_nodes[#self.control_nodes + 1] = root
+			update_row(self, row)
+		end
+	end
+
+	local label = "Restore feature settings"
+	for _, feature in ipairs(self.features) do
+		if feature.id == self.active_feature then
+			label = "Restore " .. feature.label .. " settings"
+		end
+	end
+	self.restore_feature = button(self.panel, 14, 0, PANEL_WIDTH - 28, label)
+	self.control_nodes[#self.control_nodes + 1] = self.restore_feature
+	gui.set_enabled(self.restore_feature, self.active_feature ~= nil)
+	self.feature_note = text(self.panel, 14, 0, "", MUTED)
+	gui.set_line_break(self.feature_note, true)
+	gui.set_size(self.feature_note, vmath.vector3(PANEL_WIDTH - 28, 36, 0))
+	self.control_nodes[#self.control_nodes + 1] = self.feature_note
+	layout_controls(self)
+	update_feature_note(self)
+end
+
+local function set_view_open(self, open)
+	self.view_open = open and #self.views > 0
+	self.drag = nil
+	if self.view_open then
+		-- Open on the selected view's page, including after F2/F3 navigation.
+		for index, view in ipairs(self.views) do
+			if view.id == self.selected_view then
+				self.view_page = math.floor((index - 1) / VIEW_PAGE_SIZE) + 1
+				break
+			end
+		end
+	end
+	rebuild_view_choices(self)
+	layout_controls(self)
+end
+
+local function accept_views(self, message)
+	local incoming = self.incoming_views
+	if not incoming or incoming.frame ~= message.frame or incoming.invalid
+		or #incoming.views ~= incoming.count then
+		self.incoming_views = nil
+		return
+	end
+	local changed = #self.views ~= #incoming.views
+	for index, view in ipairs(incoming.views) do
+		local previous = self.views[index]
+		changed = changed or not previous or previous.id ~= view.id or previous.label ~= view.label
+	end
+	self.views = incoming.views
+	self.incoming_views = nil
+	if changed then
+		self.view_page = math.min(self.view_page, math.max(1, math.ceil(#self.views / VIEW_PAGE_SIZE)))
+		if #self.views == 0 then
+			self.view_open = false
+		end
+		rebuild_view_choices(self)
+		layout_controls(self)
+	end
+end
+
+local function click_view_selector(self, action)
+	if gui.pick_node(self.view_selector, action.x, action.y) then
+		set_view_open(self, not self.view_open)
+		return true
+	end
+	if not self.view_open then
+		return false
+	end
+	for _, choice in ipairs(self.view_choices) do
+		if gui.pick_node(choice.node, action.x, action.y) then
+			local id = choice.id
+			set_view_open(self, false)
+			send("set", { view = id })
+			return true
+		end
+	end
+	for _, page in ipairs({
+		{ node = self.view_previous, step = -1 },
+		{ node = self.view_next, step = 1 },
+	}) do
+		if #self.views > VIEW_PAGE_SIZE and page.node and gui.pick_node(page.node, action.x, action.y) then
+			self.view_page = clamp(self.view_page + page.step, 1, math.ceil(#self.views / VIEW_PAGE_SIZE))
+			rebuild_view_choices(self)
+			layout_controls(self)
+			return true
+		end
+	end
+	-- Consume dismissal clicks to avoid also changing a control that moves
+	-- into the pointer's position when the list collapses.
+	set_view_open(self, false)
+	return true
+end
+
+local function accept_controls(self)
+	local incoming = self.incoming
+	if not incoming or #incoming.order ~= incoming.count then
+		return
+	end
+	local changed = #self.control_order ~= #incoming.order
+	local features, seen = {}, {}
+	for index, id in ipairs(incoming.order) do
+		changed = changed or self.control_order[index] ~= id
+		local control = incoming.controls[id]
+		if not seen[control.feature] then
+			features[#features + 1] = { id = control.feature, label = control.feature_label or control.feature }
+			seen[control.feature] = true
+		end
+		local pending = self.pending[id]
+		if pending and self.drag ~= id and not pending.dirty
+			and (same_value(pending.value, control.value) or pending.age > 2) then
+			self.pending[id] = nil
+		end
+	end
+	self.controls, self.control_order, self.features = incoming.controls, incoming.order, features
+	self.incoming = nil
+	if not seen[self.active_feature] then
+		self.active_feature = features[1] and features[1].id
+		changed = true
+	end
+	if changed then
+		rebuild_controls(self)
+	else
+		for _, row in ipairs(self.rows) do
+			update_row(self, row)
+		end
+		update_feature_note(self)
+	end
+end
+
+local function queue_value(self, id, value)
+	local control = self.controls[id]
+	if control.editable == false then
+		return
+	end
+	if same_value(display_value(self, control), value) then
+		return
+	end
+	self.pending[id] = { value = value, dirty = true, age = 0 }
+	self.error = nil
+	for _, row in ipairs(self.rows) do
+		if row.id == id then
+			update_row(self, row)
+		end
+	end
+	update_feature_note(self)
+end
+
+local function drag_value(self, row, action)
+	local control = self.controls[row.id]
+	if not action.screen_x or not action.screen_y then
+		return
+	end
+	-- pick_node takes logical input coordinates, while screen_to_local takes
+	-- physical screen coordinates. This also accounts for panel/parent scale.
+	local local_position = gui.screen_to_local(row.track, vmath.vector3(action.screen_x, action.screen_y, 0))
+	local amount = clamp((local_position.x - gui.get_position(row.track).x) / TRACK_WIDTH, 0, 1)
+	local value
+	if control.scale == "log" then
+		value = control.min * (control.max / control.min) ^ amount
+	else
+		value = control.min + (control.max - control.min) * amount
+	end
+	if control.step then
+		value = control.min + math.floor((value - control.min) / control.step + 0.5) * control.step
+	end
+	queue_value(self, row.id, clamp(value, control.min, control.max))
+end
+
+local function click_controls(self, action)
+	if click_view_selector(self, action) then
+		return
+	end
+	for _, tab in ipairs(self.tabs) do
+		if gui.pick_node(tab.node, action.x, action.y) then
+			self.active_feature = tab.feature
+			self.error = nil
+			rebuild_controls(self)
+			return
+		end
+	end
+	if gui.pick_node(self.restore_feature, action.x, action.y) and self.active_feature then
+		for id, control in pairs(self.controls) do
+			if control.feature == self.active_feature then
+				self.pending[id] = nil
+			end
+		end
+		self.error = nil
+		send("reset_feature", { feature = self.active_feature })
+		return
+	end
+	for _, row in ipairs(self.rows) do
+		if gui.pick_node(row.reset, action.x, action.y) then
+			self.pending[row.id] = nil
+			self.error = nil
+			send("reset_control", { id = row.id })
+			return
+		elseif gui.pick_node(row.hit, action.x, action.y) then
+			local control = self.controls[row.id]
+			if control.editable == false then
+				return
+			end
+			if control.kind == "number" then
+				self.drag = row.id
+				drag_value(self, row, action)
+			elseif control.kind == "boolean" then
+				queue_value(self, row.id, not display_value(self, control))
+			elseif control.kind == "choice" then
+				local index = 0
+				for i, option in ipairs(control.options) do
+					if option == display_value(self, control) then
+						index = i
+					end
+				end
+				queue_value(self, row.id, control.options[index % #control.options + 1])
+			end
+			return
+		end
+	end
+end
+
+local function create_panel(self)
+	self.panel = gui.new_box_node(vmath.vector3(12, gui.get_height() - 12, 0), vmath.vector3(PANEL_WIDTH, 250, 0))
+	gui.set_pivot(self.panel, gui.PIVOT_NW)
+	gui.set_xanchor(self.panel, gui.ANCHOR_LEFT)
+	gui.set_yanchor(self.panel, gui.ANCHOR_TOP)
+	gui.set_color(self.panel, vmath.vector4(0.025, 0.035, 0.055, 0.94))
+	text(self.panel, 14, 12, "DRP DEBUG                         F1 hide")
+	text(self.panel, 14, 42, "View", MUTED)
+	self.view_selector = button(self.panel, 70, 36, PANEL_WIDTH - 84, "")
+	self.mode = text(self.view_selector, 7, 4, "Connecting...", ACCENT, PANEL_WIDTH - 120)
+	self.view_arrow = text(self.view_selector, PANEL_WIDTH - 104, 4, "v", ACCENT, 16)
+	self.status = text(self.panel, 14, 66, "Waiting for debug status")
+	self.description = text(self.panel, 14, 88, "")
+	gui.set_size(self.description, vmath.vector3(PANEL_WIDTH - 28, 38, 0))
+	gui.set_line_break(self.description, true)
+	gui.set_leading(self.description, 1.15)
+	self.shortcuts = text(self.panel, 14, 132, "F2 next  F3 previous  F4 normal")
+	rebuild_controls(self)
+end
+
+local function update_status(self, message)
+	self.selected_view = message.view
+	update_view_choices(self)
+	gui.set_text(self.mode, message.label or message.view or "Normal rendering")
+	local status = message.available and "Ready" or "Unavailable"
+	if message.available and message.width and message.height and message.width > 0 and message.height > 0 then
+		status = string.format("Ready  |  %d x %d", message.width, message.height)
+	end
+	gui.set_text(self.status, status)
+	gui.set_color(self.status, message.available and vmath.vector4(0.65, 0.85, 0.7, 1) or vmath.vector4(1, 0.75, 0.4, 1))
+	local description = message.description or ""
+	if not message.available and message.reason and message.reason ~= "" then
+		description = message.reason
+	end
+	gui.set_text(self.description, description)
+end
+
+function init(self)
+	self.visible = true
+	self.font = gui.get_font_resource("default")
+	self.poll_time = 0
+	self.pending, self.controls, self.control_order, self.features = {}, {}, {}, {}
+	self.control_nodes, self.rows, self.tabs = {}, {}, {}
+	self.views, self.view_pool, self.view_choices = {}, {}, {}
+	self.view_page, self.selected_view = 1, "none"
+	gui.set_render_order(15)
+	create_panel(self)
+	msg.post(".", "acquire_input_focus")
+	request_status()
+end
+
+function final(self)
+	msg.post(".", "release_input_focus")
+end
+
+function update(self, dt)
+	if not self.focus_acquired then
+		-- Nested collection init can run before the camera's init. Reacquire
+		-- after startup so panel presses reach us before camera controls.
+		msg.post(".", "acquire_input_focus")
+		self.focus_acquired = true
+	end
+	for id, pending in pairs(self.pending) do
+		pending.age = pending.age + dt
+		if pending.dirty then
+			send("set_control", { id = id, value = pending.value })
+			pending.dirty = false
+		end
+	end
+	if self.visible then
+		self.poll_time = self.poll_time + dt
+		if self.poll_time >= POLL_INTERVAL then
+			self.poll_time = 0
+			request_status()
+		end
+	end
+end
+
+function on_message(self, message_id, message, sender)
+	if message_id == STATUS then
+		update_status(self, message)
+	elseif message_id == VIEWS_BEGIN then
+		self.incoming_views = { count = message.count, frame = message.frame, views = {}, seen = {} }
+	elseif message_id == VIEW and self.incoming_views then
+		local incoming = self.incoming_views
+		if type(message.id) ~= "string" or type(message.label) ~= "string" or incoming.seen[message.id] then
+			incoming.invalid = true
+		else
+			incoming.views[#incoming.views + 1] = message
+			incoming.seen[message.id] = true
+		end
+	elseif message_id == VIEWS_END then
+		accept_views(self, message)
+	elseif message_id == CONTROLS_BEGIN then
+		self.incoming = { count = message.count, order = {}, controls = {} }
+	elseif message_id == CONTROL and self.incoming then
+		self.incoming.order[#self.incoming.order + 1] = message.id
+		self.incoming.controls[message.id] = message
+	elseif message_id == CONTROLS_END then
+		accept_controls(self)
+	elseif message_id == CONTROL_ERROR then
+		local newer_edit = false
+		local has_id = type(message.id) == "string" and message.id ~= ""
+		for id, pending in pairs(self.pending) do
+			local control = self.controls[id]
+			local affected = has_id and id == message.id
+				or not has_id and control.feature == message.feature
+			if affected then
+				-- Input can queue a newer edit before an older reply is delivered.
+				-- Do not discard that unsent value or cancel its fresh drag.
+				if pending.dirty then
+					newer_edit = true
+				else
+					self.pending[id] = nil
+					if self.drag == id then
+						self.drag = nil
+					end
+				end
+			end
+		end
+		for _, row in ipairs(self.rows) do
+			update_row(self, row)
+		end
+		if not newer_edit then
+			self.error = message.reason
+			print("DRP debug control: " .. message.reason)
+		end
+		update_feature_note(self)
+	end
+end
+
+function on_input(self, action_id, action)
+	if action.pressed then
+		if action_id == TOGGLE then
+			self.visible = not self.visible
+			self.drag = nil
+			set_view_open(self, false)
+			gui.set_enabled(self.panel, self.visible)
+			if self.visible then
+				msg.post(".", "acquire_input_focus")
+				request_status()
+			end
+			return true
+		end
+		if COMMANDS[action_id] then
+			set_view_open(self, false)
+			send(COMMANDS[action_id])
+			return true
+		end
+	end
+
+	-- Capture a pointer pressed inside the panel until its release, even if
+	-- it moves outside or the panel is hidden. Camera keyboard input still
+	-- passes through, and a camera drag started outside stays with the camera.
+	if self.capture and (action_id == nil or POINTER[action_id]) then
+		if self.drag and self.visible then
+			for _, row in ipairs(self.rows) do
+				if row.id == self.drag then
+					drag_value(self, row, action)
+				end
+			end
+		end
+		if action_id == self.capture and action.released then
+			self.capture, self.drag = nil, nil
+		end
+		return true
+	end
+	if self.visible and self.view_open and POINTER[action_id] and action.pressed
+		and not gui.pick_node(self.panel, action.x, action.y) then
+		self.capture = action_id
+		set_view_open(self, false)
+		return true
+	end
+	if self.visible and POINTER[action_id] and action.pressed
+		and gui.pick_node(self.panel, action.x, action.y) then
+		self.capture = action_id
+		if PRIMARY[action_id] then
+			click_controls(self, action)
+		end
+		return true
+	end
+	return false
+end

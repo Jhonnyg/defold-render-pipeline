@@ -33,6 +33,22 @@ the built-in composition's diffuse and specular indirect visibility; direct
 lights, emission and unlit colors retain their existing behavior. This initial
 specular treatment is scalar visibility, not directional specular occlusion.
 
+## Debugging the result
+
+Sponza includes the shared [debug overlay](../../debug/README.md). Press **F2**
+once for filtered AO, again for raw AO, and again for the scene depth used by AO.
+**F3** moves backwards, **F4** restores scene shading, and **F1** hides the panel
+without changing the selected view. White AO pixels are unoccluded; dark pixels
+show ambient occlusion. The views bypass display tone mapping, so exposure does
+not change the displayed visibility values.
+
+Look at pedestal bases, columns meeting the floor, and wall-floor corners. Raw
+AO reveals sampling noise before filtering; depth reveals missing geometry or
+incorrect silhouettes. Depth is logarithmic: distant surfaces are brighter and
+background is black. Normal-map grooves do not appear in the depth prepass.
+If AO is disabled or unavailable, the panel reports the reason rather than
+showing an old texture. Selecting a view does not enable AO or alter its settings.
+
 ## Settings
 
 All keys are under `post`. Changes activate at the next frame boundary.

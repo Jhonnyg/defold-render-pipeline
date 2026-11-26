@@ -101,3 +101,10 @@ participate in quality resolution. See [the test commands](../../../tests/README
 - A dedicated full-screen cluster/Z-slice inspector.
 - Shadows, ambient occlusion, and further post-processing; these are separate DRP
   features rather than clustered-lighting MVP1 requirements.
+
+## Debug panel
+
+The **Clustered lighting** checkbox selects Forward+ or the forward fallback;
+it leaves the scene's light components enabled. The fallback evaluates up to
+eight lights. Use the panel's **View → Cluster occupancy** selection to inspect
+cluster occupancy and overflow independently of this checkbox.

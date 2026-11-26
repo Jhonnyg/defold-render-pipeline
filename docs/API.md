@@ -12,20 +12,25 @@ Modules under `drp/internal/` are implementation details, not public API.
 
 ### `drp.initialize(options)`
 
-Initializes the singleton pipeline state. Repeated calls are idempotent and
-return the current state.
+Initializes the singleton pipeline state. Repeated calls without `features`
+return the current state. Feature selection is startup-only in the render script;
+attempting to supply a new feature list after initialization returns an error.
 
 Supported options:
 
 | Field | Type | Purpose |
 | --- | --- | --- |
+| `features` | table[] | Ordered feature modules; omitted uses the default preset, `{}` selects none. Configure in the render script. |
 | `quality` | string | Initial requested profile. |
 | `platform` | string | Overrides platform detection. Useful in tests. |
 | `capabilities` | table | Capability fields applied over native detection, primarily for tests or application-enforced limits. |
 | `strict_capabilities` | boolean | Treat unknown required capabilities as unsupported. |
 | `overrides` | table | Runtime settings merged onto the resolved profile. |
 
-Returns a state table, or `nil, error`.
+Returns a state table, or `nil, error`. State includes `features`, an ordered list
+of included feature names, labels, and capability requirements. See
+[project feature selection](../drp/features/README.md#selecting-features-in-a-project)
+for render-script and resource setup.
 
 ### `drp.begin_frame(dt)`
 
@@ -207,7 +212,9 @@ print(cluster.cluster_count, cluster.storage_bytes)
 
 Exact occupancy, dropped-light, and overflowing-cluster counters are produced
 on the GPU. Until Defold exposes asynchronous storage-buffer readback, inspect
-those values through `lighting.cluster_debug`; magenta identifies overflow.
+those values through `lighting.cluster_debug` or the shared cluster-occupancy
+view; magenta identifies overflow. See [debug controls](../drp/debug/README.md)
+for the reusable panel, keybindings, and message API.
 
 ## HDR rendering
 
@@ -249,3 +256,35 @@ Diagnostics include `enabled`, `available`, `reason`, `width`, `height`,
 `power`, `bias`, `slices`, `steps`, `temporal`, `depth_format`, `ao_format`, and
 `estimated_target_bytes`. `temporal` is currently false. See
 [GTAO](../drp/features/gtao/README.md) for settings, requirements and limitations.
+
+AO can also be inspected without scene lighting using the filtered AO, raw AO,
+and scene-depth [debug views](../drp/debug/README.md).
+
+## Feature properties
+
+### `drp.get_feature_properties()`
+
+Returns defensive copies of the configured registry's property descriptors, each
+with a namespaced `id`, current configured `value`, and `overridden` flag. Includes
+properties hidden from the debug UI (`ui = false`). Returns an empty array before
+initialization or after finalization.
+
+### `drp.set_feature_property(id, value)`
+
+Validates the value against the included feature's property schema and merges it
+into runtime overrides. Numeric values clamp to `limits`, independently of UI
+slider ranges; integer properties round to the nearest integer. Invalid IDs,
+types, non-finite numbers, and unsupported enum options return `nil, error`
+without changing pending settings. Successful edits return a quality resolution
+and apply at the next frame boundary. Reset with `clear_runtime_overrides(path)`.
+
+```lua
+-- In the render context, after initialization:
+local resolution, err = drp.set_feature_property("gtao.radius", 20)
+assert(resolution, err) -- Valid even though the debug slider ends at 10.
+```
+
+These APIs inspect/change the registry in the caller's Lua context. Configure
+features in the render script and use the debug message transport from a GUI or
+game script when contexts are separate. The shared debug collection handles this
+automatically. See the [property schema](../drp/features/README.md#feature-property-schema).

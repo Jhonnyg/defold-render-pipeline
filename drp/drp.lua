@@ -26,6 +26,7 @@ local quality = require("drp.internal.quality")
 
 ---@class drp.State
 ---@field initialized boolean Whether the pipeline has been initialized.
+---@field features table[] Included feature descriptors (name, label, requirements), in render-stage order.
 ---@field frame integer Number of frames begun through `drp.begin_frame()`.
 ---@field requested_quality string|nil Latest requested profile, including a pending request.
 ---@field effective_quality string|nil Currently active effective profile.
@@ -90,6 +91,7 @@ local quality = require("drp.internal.quality")
 ---@field current drp.QualityResolution Newly active resolution.
 
 ---@class drp.InitializeOptions
+---@field features table[]|nil Ordered feature modules, selected only in render-script initialization. An empty list includes no features.
 ---@field quality string|nil Initial requested profile. Defaults to `drp.default_profile`.
 ---@field platform string|nil Platform override, primarily useful for tests.
 ---@field capabilities table|nil Capability values supplied by a native provider or test.
@@ -106,7 +108,8 @@ local M = {
 ---Initializes the DRP singleton.
 ---
 ---The initial quality profile is resolved immediately and becomes active during
----initialization. Repeated calls are idempotent and return the current state.
+---initialization. Repeated calls without `features` return the current state.
+---Feature composition is fixed until finalize; configure it in the render script.
 ---@param options drp.InitializeOptions|nil Optional startup configuration.
 ---@return drp.State|nil state Current pipeline state, or `nil` on failure.
 ---@return string|nil error Error message when initialization fails.
@@ -300,6 +303,23 @@ end
 ---@return boolean removed Whether a listener existed and was removed.
 function M.remove_quality_listener(handle)
 	return pipeline.remove_quality_listener(handle)
+end
+
+---Returns included feature properties, current configured values, and override flags.
+---Call in the render context; the debug overlay queries that context via messages.
+---@return table[] properties Defensive copies, using namespaced IDs such as `gtao.radius`.
+function M.get_feature_properties()
+	return pipeline.get_feature_properties()
+end
+
+---Sets a feature property, validating its type and numeric domain (not slider limits).
+---The update merges with other runtime overrides at the next frame boundary.
+---@param id string Namespaced property ID from `get_feature_properties()`.
+---@param value boolean|number|string New value.
+---@return drp.QualityResolution|nil resolution
+---@return string|nil error
+function M.set_feature_property(id, value)
+	return pipeline.set_feature_property(id, value)
 end
 
 return M
