@@ -23,7 +23,9 @@ Use the **View** selector at the top of the panel to choose a specific view.
 Its choices come from the renderer's configured features, including custom
 features. The default list is Scene, AO, Raw AO, Scene depth, and Cluster
 occupancy. Longer lists have page buttons. F2/F3/F4 remain available and keep the
-selector synchronized. Click outside the list to dismiss it.
+selector synchronized. The list floats above the controls without moving or
+resizing the panel. Click outside the list to dismiss it; that click does not
+activate the controls underneath.
 
 The panel reports the selected view, its availability, and texture dimensions.
 

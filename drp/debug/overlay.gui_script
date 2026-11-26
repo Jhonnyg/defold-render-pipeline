@@ -188,14 +188,6 @@ local function clear_nodes(nodes)
 	end
 end
 
-local function view_list_height(self)
-	if not self.view_open then
-		return 0
-	end
-	local count = math.min(VIEW_PAGE_SIZE, #self.views - (self.view_page - 1) * VIEW_PAGE_SIZE)
-	return count * VIEW_ROW_HEIGHT + (#self.views > VIEW_PAGE_SIZE and 28 or 0) + 8
-end
-
 local function update_view_choices(self)
 	for _, choice in ipairs(self.view_choices) do
 		local selected = choice.id == self.selected_view
@@ -208,6 +200,10 @@ local function rebuild_view_choices(self)
 	gui.set_text(self.view_arrow, self.view_open and "^" or "v")
 	local first = (self.view_page - 1) * VIEW_PAGE_SIZE + 1
 	local count = self.view_open and math.min(VIEW_PAGE_SIZE, #self.views - first + 1) or 0
+	local paged = self.view_open and #self.views > VIEW_PAGE_SIZE
+	gui.set_enabled(self.view_popup, self.view_open)
+	gui.set_size(self.view_popup, vmath.vector3(PANEL_WIDTH - 84,
+		math.max(0, count * VIEW_ROW_HEIGHT + (paged and VIEW_ROW_HEIGHT or 0) - 2), 0))
 
 	-- Reuse the small set of option nodes. Defold defers node deletion, so
 	-- repeatedly allocating during input can exhaust the GUI node pool.
@@ -216,7 +212,7 @@ local function rebuild_view_choices(self)
 		if slot <= count then
 			local view = self.views[first + slot - 1]
 			if not item then
-				local node, label = button(self.panel, 70, 64 + (slot - 1) * VIEW_ROW_HEIGHT, PANEL_WIDTH - 84, "")
+				local node, label = button(self.view_popup, 0, (slot - 1) * VIEW_ROW_HEIGHT, PANEL_WIDTH - 84, "")
 				item = { node = node, label = label }
 				self.view_pool[slot] = item
 			end
@@ -228,21 +224,20 @@ local function rebuild_view_choices(self)
 		end
 	end
 
-	local paged = self.view_open and #self.views > VIEW_PAGE_SIZE
 	if paged and not self.view_previous then
-		self.view_previous = button(self.panel, 70, 0, 34, "<")
-		self.view_page_label = text(self.panel, 116, 0, "")
-		self.view_next = button(self.panel, PANEL_WIDTH - 48, 0, 34, ">")
+		self.view_previous = button(self.view_popup, 0, 0, 34, "<")
+		self.view_page_label = text(self.view_popup, 46, 0, "")
+		self.view_next = button(self.view_popup, PANEL_WIDTH - 118, 0, 34, ">")
 	end
 	if self.view_previous then
 		gui.set_enabled(self.view_previous, paged)
 		gui.set_enabled(self.view_next, paged)
 		gui.set_enabled(self.view_page_label, paged)
-		local y = 64 + count * VIEW_ROW_HEIGHT
+		local y = count * VIEW_ROW_HEIGHT
 		local pages = math.ceil(#self.views / VIEW_PAGE_SIZE)
-		gui.set_position(self.view_previous, vmath.vector3(70, -y, 0))
-		gui.set_position(self.view_next, vmath.vector3(PANEL_WIDTH - 48, -y, 0))
-		gui.set_position(self.view_page_label, vmath.vector3(116, -y - 4, 0))
+		gui.set_position(self.view_previous, vmath.vector3(0, -y, 0))
+		gui.set_position(self.view_next, vmath.vector3(PANEL_WIDTH - 118, -y, 0))
+		gui.set_position(self.view_page_label, vmath.vector3(46, -y - 4, 0))
 		gui.set_text(self.view_page_label, string.format("Page %d / %d", self.view_page, pages))
 		gui.set_color(self.view_previous, self.view_page > 1 and BUTTON or MUTED)
 		gui.set_color(self.view_next, self.view_page < pages and BUTTON or MUTED)
@@ -251,16 +246,12 @@ local function rebuild_view_choices(self)
 end
 
 local function layout_controls(self)
-	local offset = view_list_height(self)
-	gui.set_position(self.status, vmath.vector3(14, -66 - offset, 0))
-	gui.set_position(self.description, vmath.vector3(14, -88 - offset, 0))
-	gui.set_position(self.shortcuts, vmath.vector3(14, -132 - offset, 0))
 	local columns = math.max(1, math.min(3, #self.features))
 	local tab_width = (PANEL_WIDTH - 28 - 6 * (columns - 1)) / columns
-	local row_top = ROW_TOP + offset + math.max(0, math.ceil(#self.features / columns) - 1) * 30
+	local row_top = ROW_TOP + math.max(0, math.ceil(#self.features / columns) - 1) * 30
 	for index, tab in ipairs(self.tabs) do
 		local x = 14 + (index - 1) % columns * (tab_width + 6)
-		local y = 159 + offset + math.floor((index - 1) / columns) * 30
+		local y = 159 + math.floor((index - 1) / columns) * 30
 		gui.set_position(tab.node, vmath.vector3(x, -y, 0))
 	end
 	for index, row in ipairs(self.rows) do
@@ -329,6 +320,9 @@ local function rebuild_controls(self)
 	self.control_nodes[#self.control_nodes + 1] = self.feature_note
 	layout_controls(self)
 	update_feature_note(self)
+	-- Keep the whole popup above newly rebuilt controls. A sibling reference
+	-- preserves its panel parent, including the panel's scale and visibility.
+	gui.move_above(self.view_popup, self.feature_note)
 end
 
 local function set_view_open(self, open)
@@ -344,7 +338,6 @@ local function set_view_open(self, open)
 		end
 	end
 	rebuild_view_choices(self)
-	layout_controls(self)
 end
 
 local function accept_views(self, message)
@@ -367,7 +360,6 @@ local function accept_views(self, message)
 			self.view_open = false
 		end
 		rebuild_view_choices(self)
-		layout_controls(self)
 	end
 end
 
@@ -394,12 +386,13 @@ local function click_view_selector(self, action)
 		if #self.views > VIEW_PAGE_SIZE and page.node and gui.pick_node(page.node, action.x, action.y) then
 			self.view_page = clamp(self.view_page + page.step, 1, math.ceil(#self.views / VIEW_PAGE_SIZE))
 			rebuild_view_choices(self)
-			layout_controls(self)
 			return true
 		end
 	end
-	-- Consume dismissal clicks to avoid also changing a control that moves
-	-- into the pointer's position when the list collapses.
+	if gui.pick_node(self.view_popup, action.x, action.y) then
+		return true
+	end
+	-- Consume dismissal clicks so covered controls never receive a popup click.
 	set_view_open(self, false)
 	return true
 end
@@ -548,6 +541,10 @@ local function create_panel(self)
 	gui.set_line_break(self.description, true)
 	gui.set_leading(self.description, 1.15)
 	self.shortcuts = text(self.panel, 14, 132, "F2 next  F3 previous  F4 normal")
+	-- An opaque popup covers the controls, including gaps between options,
+	-- without changing the panel's layout or scale when opened or paged.
+	self.view_popup = box(self.panel, 70, 64, PANEL_WIDTH - 84, 0, vmath.vector4(0.065, 0.085, 0.12, 1))
+	gui.set_enabled(self.view_popup, false)
 	rebuild_controls(self)
 end
 
