@@ -37,8 +37,8 @@ dependencies#0 = https://github.com/Jhonnyg/defold-vantage/archive/refs/tags/0.3
 include_dirs = drp
 
 [drp]
-default_profile = balanced
-fallback_profile = compatibility
+default_profile = medium
+fallback_profile = low
 strict_capabilities = 0
 
 [input]

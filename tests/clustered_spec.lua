@@ -104,11 +104,11 @@ function M.run()
 
 	-- Change profile and viewport repeatedly, checking actual allocation lifetime.
 	for index = 1, 60 do
-		local profile = ({ "balanced", "high", "ultra", "compatibility" })[(index - 1) % 4 + 1]
+		local profile = ({ "medium", "high", "ultra", "low" })[(index - 1) % 4 + 1]
 		assert(pipeline.set_quality(profile))
 		width, height = 640 + index * 8, 480 + index * 4
 		frame()
-		assert(count_buffers() == (profile == "compatibility" and 0 or 6))
+		assert(count_buffers() == (profile == "low" and 0 or 6))
 	end
 	pipeline.finalize()
 
@@ -126,7 +126,7 @@ function M.run()
 		for _, strict in ipairs({ false, true }) do
 			limits[name] = minimum - 1
 			assert(pipeline.initialize({ quality = "high", strict_capabilities = strict }))
-			assert(pipeline.get_effective_quality() == "compatibility", name .. " must reject clustering")
+			assert(pipeline.get_effective_quality() == "low", name .. " must reject clustering")
 			frame()
 			assert(#calls == 0 and count_buffers() == 0)
 			pipeline.finalize()
@@ -140,18 +140,18 @@ function M.run()
 
 	local bindings = limits.max_storage_buffers_per_stage
 	limits.max_storage_buffers_per_stage = nil
-	assert(pipeline.initialize({ quality = "balanced", strict_capabilities = true }))
-	assert(pipeline.get_effective_quality() == "compatibility")
+	assert(pipeline.initialize({ quality = "medium", strict_capabilities = true }))
+	assert(pipeline.get_effective_quality() == "low")
 	pipeline.finalize()
 	limits.max_storage_buffers_per_stage = bindings
 
 	-- A supported pipeline must also fall back on a runtime capability change.
-	assert(pipeline.initialize({ quality = "balanced" }))
+	assert(pipeline.initialize({ quality = "medium" }))
 	width, height = 960, 640
 	frame()
 	assert(pipeline.set_capabilities({ limits = { max_storage_buffers_per_stage = 4 } }))
 	frame()
-	assert(pipeline.get_effective_quality() == "compatibility" and count_buffers() == 0 and #calls == 0)
+	assert(pipeline.get_effective_quality() == "low" and count_buffers() == 0 and #calls == 0)
 	assert(pipeline.set_capabilities({ limits = { max_storage_buffer_range = 35840 } }))
 	diagnostics = frame()
 	assert(diagnostics.max_lights_per_cluster == 8 and diagnostics.capacity_clamped)
@@ -163,15 +163,15 @@ function M.run()
 	-- application tries to override capabilities or select a clustered profile.
 	build_resources = "0"
 	assert(pipeline.initialize({ quality = "ultra", capabilities = { features = { clustered_resources = true } } }))
-	assert(pipeline.get_effective_quality() == "compatibility")
+	assert(pipeline.get_effective_quality() == "low")
 	frame()
 	assert(#calls == 0 and count_buffers() == 0)
-	assert(pipeline.set_quality("balanced"))
+	assert(pipeline.set_quality("medium"))
 	frame()
-	assert(pipeline.get_effective_quality() == "compatibility" and #calls == 0)
+	assert(pipeline.get_effective_quality() == "low" and #calls == 0)
 	local rejected, rejection = pipeline.set_runtime_overrides({ rendering = { path = "forward_plus" } })
 	assert(not rejected and rejection, "runtime overrides must be validated before activation")
-	assert(pipeline.set_quality("compatibility"), "a rejected override must not poison later requests")
+	assert(pipeline.set_quality("low"), "a rejected override must not poison later requests")
 	frame()
 	assert(#calls == 0)
 	pipeline.finalize()
@@ -191,7 +191,7 @@ function M.run()
 			scene_draws[#scene_draws + 1] = { predicate = predicate, linear = options.constants.drp_output_settings.x }
 		end
 	end
-	assert(pipeline.initialize({ quality = "balanced", capabilities = { features = { float_render_targets = true } } }))
+	assert(pipeline.initialize({ quality = "medium", capabilities = { features = { float_render_targets = true } } }))
 	pipeline.on_message("drp_hdr_presenter", { loaded = true }, "hdr-test")
 	frame()
 	assert(target_alive and resolves == 1)
@@ -201,7 +201,7 @@ function M.run()
 	assert(not target_alive and resolves == 1)
 	for _, draw in ipairs(scene_draws) do assert(draw.linear == 0) end
 	assert(pipeline.set_runtime_overrides({ rendering = { hdr = true } }))
-	assert(pipeline.set_quality("compatibility"))
+	assert(pipeline.set_quality("low"))
 	scene_draws = {}; frame()
 	assert(target_alive and resolves == 2, "HDR must also work with forward material overrides")
 	pipeline.on_message("drp_hdr_presenter", { loaded = false }, "hdr-test")

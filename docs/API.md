@@ -84,8 +84,8 @@ Registers or replaces a profile. The definition supports:
 {
     name = "custom",
     description = "Project-specific profile",
-    extends = "balanced",
-    fallback = "compatibility",
+    extends = "medium",
+    fallback = "low",
     requirements = { "compute_shaders" },
     settings = {},
     platform_overrides = {},
@@ -219,8 +219,8 @@ for the reusable panel, keybindings, and message API.
 ## HDR rendering
 
 Select `/drp/drp.render` as the renderer; the native extension supplies the
-fullscreen geometry without a scene game object. `balanced`, `high`, and
-`ultra` enable HDR. The compatibility profile defaults to direct LDR output.
+fullscreen geometry without a scene game object. `medium`, `high`, and
+`ultra` enable HDR. The low profile defaults to direct LDR output.
 
 ```lua
 assert(drp.set_runtime_overrides({
@@ -241,8 +241,8 @@ See [HDR](../drp/features/hdr/README.md) for material and custom-render integrat
 
 ## Ambient occlusion
 
-`post.gtao` enables GTAO with the bundled renderer. Balanced/high/ultra enable
-it automatically; compatibility can opt in without HDR or compute shaders.
+`post.gtao` enables GTAO with the bundled renderer. Medium/high/ultra enable
+it automatically; low can opt in without HDR or compute shaders.
 No scene game object is required. Set radius in scene units and inspect the
 feature's effective availability after the render frame:
 

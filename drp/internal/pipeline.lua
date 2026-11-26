@@ -122,10 +122,10 @@ function M.initialize(options)
 	state.frame_dt = 0
 	state.frame_transition = nil
 
-	local requested = options.quality or config.string("drp.default_profile", "balanced")
+	local requested = options.quality or config.string("drp.default_profile", "medium")
 	local resolution, err = resolve(requested)
 	if not resolution then
-		local fallback = config.string("drp.fallback_profile", "compatibility")
+		local fallback = config.string("drp.fallback_profile", "low")
 		resolution, err = resolve(fallback)
 		if not resolution then
 			features.configure({})
@@ -278,7 +278,7 @@ local function reply_debug_status(context)
 		local sender = request.sender
 		msg.post(sender, "drp_debug_status", status)
 		if request.profiles then
-			profiles = profiles or quality.get_names()
+			profiles = profiles or quality.get_names("tier")
 			msg.post(sender, "drp_debug_profiles_begin", { count = #profiles, frame = context.frame })
 			for _, name in ipairs(profiles) do
 				msg.post(sender, "drp_debug_profile", { id = name, label = name })

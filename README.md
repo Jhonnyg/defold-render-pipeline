@@ -47,7 +47,7 @@ material behavior when upgrading.
 local drp = require("drp.drp")
 
 local state, err = drp.initialize({
-    quality = "balanced",
+    quality = "medium",
 })
 
 assert(state, err)
@@ -67,17 +67,17 @@ render script.
 
 ## Built-in profiles
 
-- `compatibility`: portable conventional-forward baseline.
-- `balanced`: default Forward+ target.
+- `low`: portable conventional-forward baseline.
+- `medium`: default Forward+ target.
 - `high`: higher light, shadow, and post-processing budgets.
 - `ultra`: experimental maximum-quality target.
 
-The `balanced`, `high`, and `ultra` profiles activate clustered lighting. On a
-cluster-capable device, switching to `compatibility` uses conventional glTF
+The `medium`, `high`, and `ultra` profiles activate clustered lighting. On a
+cluster-capable device, switching to `low` uses conventional glTF
 material overrides for the same scene. These profiles also enable HDR scene
 rendering and tone mapping automatically when using `/drp/drp.render`; no HDR
 game object is required. They also enable screen-space ambient occlusion with
-depth-aware filtering. Compatibility defaults to LDR with AO off. Shadows,
+depth-aware filtering. Low defaults to LDR with AO off. Shadows,
 depth of field and temporal settings still describe future rendering intent.
 See [HDR setup and controls](drp/features/hdr/README.md) and
 [GTAO setup and controls](drp/features/gtao/README.md).
@@ -92,7 +92,7 @@ python3 tools/prepare_compatibility.py --output /tmp/drp-compatibility
 
 Build that directory with Bob or open it in Defold. The exporter selects a
 render resource without compute programs, replaces the three public clustered
-materials with conventional shaders, and locks the build to compatibility.
+materials with conventional shaders, and locks the build to the low tier.
 The original project is unchanged. See [compatibility builds](docs/COMPATIBILITY.md).
 
 Read [the quality-profile documentation](docs/QUALITY_PROFILES.md) and
@@ -127,8 +127,10 @@ The **Quality** selector switches between registered profiles and shows the
 effective tier after capability fallback. Runtime overrides survive tier changes;
 a `*` beside the profile name indicates active overrides.
 
-Reuse `/drp/debug/debug.collection` in other scenes and merge its input actions
-into your project's bindings. The renderer draws the panel and texture views
+Reuse `/drp/debug/debug.collection` in other scenes and merge the shipped
+`/drp/debug/debug.input_binding` entries into your project's bindings, or remap
+the overlay to existing actions. Both resources are included in the dependency.
+The renderer draws the panel and texture views
 after tone mapping. See [debug setup and controls](drp/debug/README.md), including
 the message API for selecting views without the panel.
 
@@ -155,8 +157,8 @@ max_count = 64
 exclude_gles_sm100 = 1
 
 [drp]
-default_profile = balanced
-fallback_profile = compatibility
+default_profile = medium
+fallback_profile = low
 strict_capabilities = 0
 ```
 

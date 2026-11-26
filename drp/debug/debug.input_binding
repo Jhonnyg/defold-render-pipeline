@@ -1,0 +1,28 @@
+key_trigger {
+  input: KEY_F1
+  action: "drp_debug_toggle"
+}
+key_trigger {
+  input: KEY_F2
+  action: "drp_debug_next"
+}
+key_trigger {
+  input: KEY_F3
+  action: "drp_debug_previous"
+}
+key_trigger {
+  input: KEY_F4
+  action: "drp_debug_reset"
+}
+mouse_trigger {
+  input: MOUSE_BUTTON_1
+  action: "drp_debug_pointer"
+}
+mouse_trigger {
+  input: MOUSE_BUTTON_2
+  action: "drp_debug_pointer_secondary"
+}
+mouse_trigger {
+  input: MOUSE_BUTTON_3
+  action: "drp_debug_pointer_middle"
+}

@@ -3,8 +3,8 @@ local clustered = require("drp.features.clustered.config")
 return {
 	name = "high",
 	description = "Higher quality Forward+ profile for desktop and console-class hardware.",
-	extends = "balanced",
-	fallback = "balanced",
+	extends = "medium",
+	fallback = "medium",
 	settings = {
 		lighting = {
 			cluster_tile_size = 64,

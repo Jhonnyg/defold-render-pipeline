@@ -10,6 +10,8 @@ local function assert_equal(expected, actual, message)
 end
 
 function M.run()
+	assert_equal("low, medium, high, ultra", utils.join(quality.get_names("tier"), ", "), "debug tier order")
+	assert_equal("high, low, medium, ultra", utils.join(quality.get_names(), ", "), "public names remain alphabetical")
 	local source = {
 		nested = { value = 1 },
 		items = { "a", "b" },
@@ -58,9 +60,9 @@ function M.run()
 	_G.drp_native = previous_native
 
 	local unknown_caps = capabilities.detect({ platform = "macos" })
-	local balanced = assert(quality.resolve("balanced", unknown_caps))
-	assert_equal("balanced", balanced.effective, "unknown capabilities are allowed in non-strict mode")
-	assert_equal(false, balanced.profile.settings.lighting.cluster_debug,
+	local medium = assert(quality.resolve("medium", unknown_caps))
+	assert_equal("medium", medium.effective, "unknown capabilities are allowed in non-strict mode")
+	assert_equal(false, medium.profile.settings.lighting.cluster_debug,
 		"clustered PBR shading is enabled by default")
 
 	local unsupported_caps = capabilities.detect({
@@ -72,11 +74,11 @@ function M.run()
 		},
 	})
 	local fallback = assert(quality.resolve("high", unsupported_caps))
-	assert_equal("compatibility", fallback.effective, "unsupported Forward+ profiles fall back")
+	assert_equal("low", fallback.effective, "unsupported Forward+ profiles fall back")
 	assert_equal("forward", fallback.profile.settings.rendering.path,
-		"compatibility keeps the conventional forward path")
+		"low keeps the conventional forward path")
 	assert(#fallback.reasons >= 2, "fallback should retain rejection reasons")
-	local invalid_path = quality.resolve("compatibility", unsupported_caps, {
+	local invalid_path = quality.resolve("low", unsupported_caps, {
 		rendering = { path = "forward_plus" },
 	})
 	assert_equal(nil, invalid_path, "runtime path overrides cannot bypass core GPU requirements")
@@ -89,13 +91,13 @@ function M.run()
 			float_render_targets = true,
 		},
 	})
-	local web = assert(quality.resolve("balanced", supported_web))
+	local web = assert(quality.resolve("medium", supported_web))
 	assert_equal(48, web.profile.settings.lighting.max_lights_per_cluster, "platform override is applied")
 
 	assert(quality.register("test_custom", {
 		name = "test_custom",
-		extends = "balanced",
-		fallback = "compatibility",
+		extends = "medium",
+		fallback = "low",
 		settings = {
 			rendering = { render_scale = 0.8 },
 		},
@@ -115,15 +117,15 @@ function M.run()
 
 	pipeline.finalize()
 	assert(pipeline.initialize({
-		quality = "compatibility",
+		quality = "low",
 		platform = "macos",
 	}))
-	local request = assert(pipeline.set_quality("balanced"))
-	assert_equal("balanced", request.requested, "request is queued")
-	assert_equal("balanced", pipeline.get_requested_quality(), "pending request is observable")
-	assert_equal("compatibility", pipeline.get_effective_quality(), "active profile is unchanged before frame boundary")
+	local request = assert(pipeline.set_quality("medium"))
+	assert_equal("medium", request.requested, "request is queued")
+	assert_equal("medium", pipeline.get_requested_quality(), "pending request is observable")
+	assert_equal("low", pipeline.get_effective_quality(), "active profile is unchanged before frame boundary")
 	local transition = assert(pipeline.begin_frame(1 / 60, 800, 600))
-	assert_equal("balanced", transition.current.effective, "request activates at frame boundary")
+	assert_equal("medium", transition.current.effective, "request activates at frame boundary")
 	assert(pipeline.render())
 	local pipeline_state = pipeline.get_state()
 	assert_equal(800, pipeline_state.viewport.width, "frame width is retained")

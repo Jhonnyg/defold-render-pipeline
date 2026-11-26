@@ -25,10 +25,18 @@ inherited requirements list, while omitted requirements are inherited.
 The built-in chain is:
 
 ```text
-compatibility <- balanced <- high <- ultra
+low <- medium <- high <- ultra
 ```
 
-`balanced`, `high`, and `ultra` currently select the Forward+ clustered path.
+`medium` is the default request; `low` is the portable fallback. These replace
+the previous profile IDs `balanced` and `compatibility`, respectively. Update
+`drp.default_profile`, `drp.fallback_profile`, calls to `drp.set_quality()`, and
+custom profiles' `extends`/`fallback` fields to use the new IDs. Direct internal
+module imports likewise use `drp.profiles.medium` and `drp.profiles.low`.
+The `/drp/compatibility.render` resource and compatibility build/preset names
+still describe the portable renderer configuration.
+
+`medium`, `high`, and `ultra` currently select the Forward+ clustered path.
 All three cap `max_lights_per_cluster` at 64 because the first implementation
 declares a 64-entry view of the engine-owned `LightBuffer` UBO. The engine may
 allocate a larger UBO, but it must not allocate a smaller one than the shader
@@ -114,7 +122,7 @@ compile profile assets into the same runtime representation.
 ## HDR settings
 
 `rendering.hdr` enables a linear RGBA16F scene target and a final ACES-style
-tone-map/sRGB pass. It is true for balanced/high/ultra and false for compatibility.
+tone-map/sRGB pass. It is true for medium/high/ultra and false for low.
 `rendering.hdr_exposure` defaults to 0 EV and can be changed through the same
 runtime override API, without reallocating the target. HDR can also be enabled
 for the compatibility path on supported devices.
@@ -127,9 +135,9 @@ is unknown. The cluster heatmap always bypasses tone mapping.
 
 ## Ambient occlusion settings
 
-`post.gtao` enables GTAO independently of HDR or the clustered path. Balanced,
+`post.gtao` enables GTAO independently of HDR or the clustered path. Medium,
 high and ultra enable it at half resolution, with medium/high/ultra sampling
-budgets respectively. Compatibility defaults to off and can opt in. Set
+budgets respectively. Low defaults to off and can opt in. Set
 `gtao_radius` in scene units; `gtao_intensity`, `gtao_power`, `gtao_bias`,
 `gtao_quality` and `gtao_resolution` control appearance and cost.
 

@@ -34,7 +34,8 @@ The panel reports the selected view, its availability, and texture dimensions.
 The **Quality** selector switches between registered quality profiles, including
 project profiles registered in the renderer's Lua context. Its choices come
 from the renderer, so the GUI does not maintain its own list of tiers. The
-built-in profiles are `compatibility`, `balanced`, `high`, and `ultra`.
+built-in profiles appear in ascending order: `low`, `medium`, `high`, and `ultra`,
+followed by project profiles in alphabetical order.
 
 The selector shows the requested profile. **Active** shows the effective profile
 after capability fallback; changes apply at the next frame boundary and refresh
@@ -91,10 +92,13 @@ a scene camera, only the cleared background and panel are visible. F4 changes
 only the debug view: existing quality profiles and runtime overrides remain in
 effect, including a previously configured `lighting.cluster_debug` heatmap.
 
-## Add it to another scene
+## Add it to another project or scene
 
 1. Add `/drp/debug/debug.collection` as a collection instance in the scene.
-2. Add these actions to the input binding selected in `game.project`:
+2. Merge the entries from `/drp/debug/debug.input_binding` into the project's
+   active input binding, or map the overlay to actions you already use.
+   Both resources ship inside the exported `drp/` directory and are available
+   when DRP is a project dependency.
 
    | Input | Action |
    | --- | --- |
@@ -102,25 +106,37 @@ effect, including a previously configured `lighting.cluster_debug` heatmap.
    | F2 | `drp_debug_next` |
    | F3 | `drp_debug_previous` |
    | F4 | `drp_debug_reset` |
+   | Left mouse | `drp_debug_pointer` |
+   | Right mouse | `drp_debug_pointer_secondary` |
+   | Middle mouse | `drp_debug_pointer_middle` |
 
-   For mouse controls, bind the primary mouse button to `drp_debug_pointer`,
-   or configure the overlay to use an existing action as shown below.
-   Do not bind the same mouse button twice.
+   The left mouse button operates the controls. Right and middle bindings let
+   the overlay consume presses over the panel before camera/game input sees
+   them. Reuse existing actions rather than binding the same mouse button twice.
 
-   Merge these with the project's existing bindings. This repository's
-   `/input/game.input_binding` combines the actions with Vantage's camera
-   controls; applications using different controls should keep their own map.
+Defold uses one active input binding; adding a collection or library does not
+merge bindings or inherit the library's `game.project` settings. In an existing
+project, keep its input map and merge or remap the actions above. For a new project
+without an existing input map, select the shipped resource directly:
+
+```ini
+[input]
+game_binding = /drp/debug/debug.input_bindingc
+```
 
 To reuse an existing input map, configure action names in `game.project`:
 
 ```ini
 [drp_debug]
-pointer = VANTAGE_MOUSE_1
-pointer_secondary = VANTAGE_MOUSE_2
-pointer_middle = VANTAGE_MOUSE_3
+pointer = click
+pointer_secondary = right_click
+pointer_middle = middle_click
 ```
 
-These are this project's camera action names, not dependencies of the overlay.
+Replace these names with actions defined in your project's input binding.
+This repository's examples use Vantage's `VANTAGE_MOUSE_1`, `VANTAGE_MOUSE_2`,
+and `VANTAGE_MOUSE_3` actions through the same remapping mechanism; Vantage and
+the example-only `/input/game.input_binding` are not needed by the overlay.
 Without configuration, pointer actions default to `drp_debug_pointer`,
 `drp_debug_pointer_secondary`, and `drp_debug_pointer_middle`. The optional
 `toggle`, `next`, `previous`, and `reset` keys override the corresponding
