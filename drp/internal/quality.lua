@@ -6,6 +6,7 @@ local M = {}
 
 local registry = {}
 local resolved_cache = {}
+local TIER_ORDER = { low = 1, medium = 2, high = 3, ultra = 4 }
 
 local ALLOWED_PROFILE_KEYS = {
 	description = true,
@@ -181,12 +182,24 @@ function M.get(name)
 	return resolve_definition(name)
 end
 
-function M.get_names()
+-- The public API keeps alphabetical ordering. Debug menus can request the
+-- built-in tiers first in ascending quality, followed by project profiles.
+function M.get_names(order)
 	local names = {}
 	for name in pairs(registry) do
 		names[#names + 1] = name
 	end
-	table.sort(names)
+	if order == "tier" then
+		table.sort(names, function(a, b)
+			local rank_a, rank_b = TIER_ORDER[a] or math.huge, TIER_ORDER[b] or math.huge
+			if rank_a ~= rank_b then
+				return rank_a < rank_b
+			end
+			return a < b
+		end)
+	else
+		table.sort(names)
+	end
 	return names
 end
 
@@ -195,8 +208,9 @@ end
 ---@param requested string
 ---@param detected table
 ---@param settings_overrides table|nil Settings applied before requirement validation.
+---@param property_defaults table|nil Feature defaults beneath profile and platform settings.
 ---@return table|nil, string|nil
-function M.resolve(requested, detected, settings_overrides)
+function M.resolve(requested, detected, settings_overrides, property_defaults)
 	detected = detected or capabilities.detect()
 	local attempted = {}
 	local reasons = {}
@@ -212,6 +226,7 @@ function M.resolve(requested, detected, settings_overrides)
 		if not profile then
 			return nil, err
 		end
+		profile.settings = utils.merge(utils.copy(property_defaults or {}), profile.settings)
 		apply_platform_override(profile, detected.platform or "unknown")
 		utils.merge(profile.settings, settings_overrides or {})
 
@@ -246,8 +261,8 @@ end
 -- cannot discover modules loaded by passing a variable to require(), and would
 -- otherwise omit the built-in profiles from the bundle.
 local BUILTIN_PROFILES = {
-	require("drp.profiles.compatibility"),
-	require("drp.profiles.balanced"),
+	require("drp.profiles.low"),
+	require("drp.profiles.medium"),
 	require("drp.profiles.high"),
 	require("drp.profiles.ultra"),
 }

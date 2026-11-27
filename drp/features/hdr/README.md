@@ -22,7 +22,7 @@ Custom render scripts must include the `drp_hdr_tonemap` material resource and
 call the pipeline's frame/render hooks as the bundled script does. The HDR
 feature submits its fullscreen entry during `begin_frame`, before scene drawing.
 
-`balanced`, `high`, and `ultra` enable HDR. `compatibility` defaults to LDR but
+`medium`, `high`, and `ultra` enable HDR. `low` defaults to LDR but
 can opt into HDR on devices that support it. Settings also work through custom
 profiles or the existing runtime override API:
 

@@ -3,7 +3,7 @@
 DRP supports runtime quality changes on devices capable of loading its clustered
 shaders. A device lacking compute or storage-buffer support needs a separate
 compatibility build. Defold eagerly loads `.render` resources and model
-materials before Lua runs, so selecting `drp.default_profile = compatibility`
+materials before Lua runs, so selecting `drp.default_profile = low`
 alone cannot prevent unsupported shader resources from being created.
 
 From the project root, run:
@@ -23,8 +23,8 @@ The exporter:
   conventional opaque, alpha-mask, and transparent shaders.
 - Selects `/drp/compatibility.render`, containing only conventional material
   resources, and replaces the exported `/drp/drp.render` with the same contents.
-- Sets `drp.clustered_resources = 0`. Requests for `balanced`, `high`, or `ultra`
-  resolve to compatibility, even on a capable device. Applications cannot
+- Sets `drp.clustered_resources = 0`. Requests for `medium`, `high`, or `ultra`
+  resolve to low, even on a capable device. Applications cannot
   restore omitted shaders with `set_capabilities()`.
 - Copies cached dependency archives when present, and excludes build outputs,
   Git metadata, and editor caches. The original project remains unchanged.
@@ -40,6 +40,6 @@ not provided by this project-only export.
 
 HDR and GTAO fullscreen/depth materials are retained in the compatibility
 renderer; neither requires compute shaders or SSBOs. Both default to off in
-the compatibility profile. They may be enabled independently through runtime
+the low profile. They may be enabled independently through runtime
 overrides when the native fullscreen bridge and floating-point targets are
 available. Opaque/masked PBR materials declare six texture slots including AO.

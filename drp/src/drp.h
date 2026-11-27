@@ -175,12 +175,14 @@ namespace dmDRP
      * Submit one fullscreen triangle using a compiled .materialc resource.
      * Call once per material from render-script update before drawing its
      * predicate, after the engine clears the frame's render list. Submission
-     * only creates a render-list entry: the usual render.draw() command controls
+     * requests the material's cached render item: render.draw() controls
      * target, textures, constants and draw timing. Material tags select the pass.
      * Geometry and material references are cached until FinalizeFullscreen().
      * @param error Optional output; receives a static error message on failure.
-     * @return True when submitted, false for unavailable contexts, shutdown,
-     *         invalid/unavailable material or resource allocation failure.
+     * @return True when submission was requested, false for unavailable contexts,
+     *         shutdown, invalid/unavailable material or resource allocation failure.
+     *         The engine may still skip a request if its frame dispatch limit is
+     *         reached; the SDK logs that failure without returning a status.
      */
     bool SubmitFullscreen(DRPContext* context, const char* material_path, const char** error);
 

@@ -1,4 +1,76 @@
+key_trigger {
+  input: KEY_W
+  action: "VANTAGE_W"
+}
+key_trigger {
+  input: KEY_A
+  action: "VANTAGE_A"
+}
+key_trigger {
+  input: KEY_S
+  action: "VANTAGE_S"
+}
+key_trigger {
+  input: KEY_D
+  action: "VANTAGE_D"
+}
+key_trigger {
+  input: KEY_Q
+  action: "VANTAGE_Q"
+}
+key_trigger {
+  input: KEY_E
+  action: "VANTAGE_E"
+}
+key_trigger {
+  input: KEY_R
+  action: "EXAMPLE_R"
+}
+key_trigger {
+  input: KEY_1
+  action: "EXAMPLE_1"
+}
+key_trigger {
+  input: KEY_2
+  action: "EXAMPLE_2"
+}
 mouse_trigger {
   input: MOUSE_BUTTON_1
-  action: "touch"
+  action: "VANTAGE_MOUSE_1"
+}
+mouse_trigger {
+  input: MOUSE_BUTTON_2
+  action: "VANTAGE_MOUSE_2"
+}
+mouse_trigger {
+  input: MOUSE_BUTTON_3
+  action: "VANTAGE_MOUSE_3"
+}
+mouse_trigger {
+  input: MOUSE_WHEEL_UP
+  action: "VANTAGE_WHEEL_UP"
+}
+mouse_trigger {
+  input: MOUSE_WHEEL_DOWN
+  action: "VANTAGE_WHEEL_DOWN"
+}
+touch_trigger {
+  input: TOUCH_MULTI
+  action: "VANTAGE_TOUCH_MULTI"
+}
+key_trigger {
+  input: KEY_F1
+  action: "drp_debug_toggle"
+}
+key_trigger {
+  input: KEY_F2
+  action: "drp_debug_next"
+}
+key_trigger {
+  input: KEY_F3
+  action: "drp_debug_previous"
+}
+key_trigger {
+  input: KEY_F4
+  action: "drp_debug_reset"
 }

@@ -49,6 +49,20 @@ function M.create_pass(context)
 	}
 end
 
+function M.clear_background(context)
+	local viewport = context.viewport
+	if not state.render_available or not viewport or viewport.width <= 0 or viewport.height <= 0 then
+		return
+	end
+
+	-- With no scene camera there is no scene pass to clear the backbuffer.
+	-- Discard the previous scene/debug image before drawing the status overlay.
+	render.set_render_target(render.RENDER_TARGET_DEFAULT)
+	render.set_viewport(0, 0, viewport.width, viewport.height)
+	render.set_color_mask(true, true, true, true)
+	render.clear({ [graphics.BUFFER_TYPE_COLOR0_BIT] = state.clear[graphics.BUFFER_TYPE_COLOR0_BIT] })
+end
+
 function M.begin(context, pass)
 	local viewport = context.viewport
 	local width = viewport and viewport.width or render.get_window_width()

@@ -56,7 +56,8 @@ def prepare(project, output):
     shutil.copyfile(output / "drp/compatibility.render", output / "drp/drp.render")
     settings = (output / "game.project").read_text()
     settings = set_setting(settings, "bootstrap", "render", "/drp/compatibility.renderc")
-    settings = set_setting(settings, "drp", "default_profile", "compatibility")
+    settings = set_setting(settings, "drp", "default_profile", "low")
+    settings = set_setting(settings, "drp", "fallback_profile", "low")
     settings = set_setting(settings, "drp", "clustered_resources", "0")
     (output / "game.project").write_text(settings)
     return output

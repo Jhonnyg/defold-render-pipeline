@@ -1,3 +1,4 @@
+local config = require("drp.internal.config")
 local utils = require("drp.internal.utils")
 local native = require("drp.internal.native")
 
@@ -55,6 +56,7 @@ function M.detect(overrides)
 		source = "lua-baseline",
 		strict = false,
 		features = {
+			clustered_resources = true,
 			compute_shaders = nil,
 			storage_buffers = nil,
 			float_render_targets = nil,
@@ -68,7 +70,7 @@ function M.detect(overrides)
 	utils.merge(result, overrides or {})
 	-- This is a build constraint, not a device capability. Runtime overrides
 	-- cannot restore GPU programs omitted by the compatibility build.
-	if _G.sys and sys.get_config and sys.get_config("drp.clustered_resources", "1") == "0" then
+	if not config.boolean("drp.clustered_resources", true) then
 		result.features.clustered_resources = false
 	end
 	result.platform = normalize_platform(result.platform)

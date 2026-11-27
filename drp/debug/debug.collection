@@ -1,0 +1,9 @@
+name: "drp_debug"
+embedded_instances {
+  id: "overlay"
+  data: "components {\n"
+  "  id: \"overlay\"\n"
+  "  component: \"/drp/debug/overlay.gui\"\n"
+  "}\n"
+  ""
+}

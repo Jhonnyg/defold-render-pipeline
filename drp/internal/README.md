@@ -14,7 +14,8 @@ transparent draws for both lighting paths.
 
 1. Apply pending profile changes and resize notifications. After quality
    listeners run, snapshot the last enabled camera into `context.camera`.
-2. Call every feature's `begin_frame(context)`. Allocate resources and submit
+2. Snapshot the selected debug view into `context.debug`, then call every
+   feature's `begin_frame(context)`. Allocate resources and submit
    all native fullscreen entries here, before any draw builds the render list.
 3. Call `render_before_scene(context)` for passes that produce scene inputs
    using their own targets.
@@ -35,6 +36,8 @@ transparent draws for both lighting paths.
    back-to-front. Unbind named textures and mark the pass `rendered`.
 9. Call `render_after_scene(context, pass)`. HDR presents only if its target was
    selected and the scene was rendered, once per pass.
+10. Query and present the selected debug source directly on the backbuffer,
+    then draw the optional `drp_debug_overlay` GUI and reply to status requests.
 
 Hooks are optional. Registration order in `features.lua` orders features within
 each stage. The existing initialize, profile-change, resize, message and finalize
@@ -74,3 +77,59 @@ can safely be disabled after scene draws.
 
 All of these modules and hooks are internal implementation details. Applications
 continue to use `require("drp.drp")` and the bundled render script.
+
+## Feature debug views
+
+`debug.lua` coordinates selection and presentation without owning feature
+resources. A feature can implement these optional hooks:
+
+- `get_debug_views()` returns stable `{ id, label, description, kind }`
+  descriptors. IDs are namespaced, for example `gtao.filtered`; `kind` is
+  `texture` or `scene`. The registry attaches the feature name.
+- `get_debug_source(context, id)` returns the current frame's source, or
+  `nil, reason` when it was not produced. A texture source supplies
+  `{ target, attachment, width, height, mode }`; mode is `visibility` or
+  `depth` (also supplying the positive camera `far` plane). A scene source
+  confirms completion of its visualization and may supply dimensions.
+
+The controller borrows targets only after feature/scene rendering. It does not
+cache handles, allocate copies, enable features, or alter quality overrides.
+Features must reject previous-frame data after camera loss, disable, or failed
+passes. Texture views are presented after HDR without tone mapping or gamma.
+Scene visualizations use `context.debug.bypass_post` to request neutral post
+processing; features need not know which other feature owns that view.
+
+The optional GUI communicates with the render script via messages, so separate
+Lua contexts work. Selection becomes active at the next frame boundary; status
+replies are sent after rendering. The [debug README](../debug/README.md) documents
+commands and reusable collection/input setup.
+
+The same transport exposes the renderer's quality-profile registry through
+`profiles` and queues tier changes through `set_quality`. This calls the existing
+pipeline quality API, preserving runtime overrides, validation, capability
+fallback and frame-boundary activation. Status reports requested, pending and
+effective quality separately. The GUI shares a paged popup implementation between
+quality and view selection; it never loads a GUI-local quality registry.
+
+## Live feature controls
+
+Features publish general `get_properties()` schemas; see the
+[feature contract](../features/README.md#feature-property-schema).
+`features.lua` validates and freezes the startup registry and `properties.lua`
+compiles its property catalog. Defaults fill absent profile settings, and property
+writes validate types and numeric domains independently of UI hints.
+
+`debug_controls.lua` translates that catalog into flat GUI descriptors. It queries
+the configured registry instead of capturing a catalog at module load. Messages
+address exposed IDs, never arbitrary paths. Interactive edits clamp to slider
+ranges; existing external values stay intact. Feature reset clears only its
+exposed paths and resolves once, preserving unrelated settings and pending
+quality requests. Capability support controls editability; current-frame
+availability and effective values come from feature diagnostics.
+
+The renderer streams view descriptors on a `views` request for the GUI selector,
+and one control descriptor/value per message to stay below Defold's
+message-size limit. Replies follow rendering, so feature availability and
+effective values describe that frame. The overlay keeps its in-progress drag
+value across polls and sends at most one pending value per control per update.
+These edits last for the running session and do not save profile/project files.

@@ -1,5 +1,5 @@
 return {
-	name = "compatibility",
+	name = "low",
 	description = "Portable baseline that does not require compute shaders or storage buffers.",
 	requirements = {},
 	settings = {

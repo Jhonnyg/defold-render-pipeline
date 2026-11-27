@@ -3,8 +3,8 @@ local drp = require("drp.drp")
 local ACTION_TOUCH = hash("touch")
 local EXAMPLE_PROFILE = "example_cinematic"
 local PROFILE_ORDER = {
-	"compatibility",
-	"balanced",
+	"low",
+	"medium",
 	"high",
 	"ultra",
 	EXAMPLE_PROFILE,
@@ -43,7 +43,7 @@ local function register_example_profile()
 		name = EXAMPLE_PROFILE,
 		description = "Example project profile derived from the high preset.",
 		extends = "high",
-		fallback = "balanced",
+		fallback = "medium",
 		settings = {
 			rendering = {
 				render_scale = 0.9,
@@ -102,7 +102,7 @@ function final(self)
 	-- Queue a built-in profile before removing the custom definition so this
 	-- collection can also be unloaded while the application keeps running.
 	if drp.get_requested_quality() == EXAMPLE_PROFILE then
-		drp.set_quality("balanced")
+		drp.set_quality("medium")
 	end
 	drp.unregister_profile(EXAMPLE_PROFILE)
 	msg.post(".", "release_input_focus")

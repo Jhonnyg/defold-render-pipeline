@@ -1,10 +1,10 @@
 local clustered = require("drp.features.clustered.config")
 
 return {
-	name = "balanced",
+	name = "medium",
 	description = "Default Forward+ profile balancing image quality and GPU cost.",
-	extends = "compatibility",
-	fallback = "compatibility",
+	extends = "low",
+	fallback = "low",
 	requirements = {
 		"compute_shaders",
 		"storage_buffers",

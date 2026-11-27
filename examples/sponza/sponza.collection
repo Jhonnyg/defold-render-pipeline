@@ -137,3 +137,7 @@ embedded_instances {
     w: 0.70921415
   }
 }
+collection_instances {
+  id: "drp_debug"
+  collection: "/drp/debug/debug.collection"
+}

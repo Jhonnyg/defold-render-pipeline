@@ -1,0 +1,12 @@
+script: "/drp/debug/overlay.gui_script"
+fonts {
+  name: "default"
+  font: "/builtins/fonts/default.font"
+}
+material: "/drp/debug/overlay.material"
+materials {
+  name: "debug_font"
+  material: "/drp/debug/overlay_font.material"
+}
+adjust_reference: ADJUST_REFERENCE_PARENT
+max_nodes: 256

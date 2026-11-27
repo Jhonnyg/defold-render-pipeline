@@ -2,7 +2,7 @@ local config = require("drp.features.gtao.config")
 local native = require("drp.internal.native")
 local resources = require("drp.internal.resources")
 
-local M = { name = "gtao" }
+local M = { name = "gtao", label = "AO", requirements = { "float_render_targets" } }
 
 local state = {
 	settings = config.resolve(),
@@ -27,6 +27,7 @@ local function release_targets()
 	end
 	state.ready = false
 	state.produced = false
+	state.produced_frame, state.produced_far = nil, nil
 	state.width, state.height = 0, 0
 	state.raw_width, state.raw_height = 0, 0
 end
@@ -48,7 +49,12 @@ local function unavailable_reason(context, width, height)
 	if not native.is_fullscreen_available() then
 		return "native fullscreen rendering is unavailable"
 	end
-	if (((context.profile or {}).settings or {}).lighting or {}).cluster_debug == true then
+	if context.debug and context.debug.bypass_post then
+		return "scene debug view bypass"
+	end
+	local debug_view = context.debug and context.debug.view
+	local explicit_debug_view = debug_view and debug_view ~= "none"
+	if not explicit_debug_view and (((context.profile or {}).settings or {}).lighting or {}).cluster_debug == true then
 		return "cluster debug bypass"
 	end
 	if width < 1 or height < 1 then
@@ -203,6 +209,7 @@ end
 
 function M.begin_frame(context)
 	state.produced = false
+	state.produced_frame, state.produced_far = nil, nil
 	configure(context)
 	if not state.ready then
 		return
@@ -296,6 +303,8 @@ function M.render_before_scene(context)
 	render.disable_texture("drp_scene_depth")
 	render.set_render_target(render.RENDER_TARGET_DEFAULT)
 	state.produced = true
+	state.produced_frame = context.frame
+	state.produced_far = context.camera.far
 end
 
 function M.configure_scene(context, pass)
@@ -315,6 +324,113 @@ function M.configure_scene(context, pass)
 		attachment = graphics.BUFFER_TYPE_COLOR0_BIT,
 	}
 	pass.override_model_material = true
+end
+
+function M.get_properties()
+	return {
+		{
+			id = "enabled", type = "boolean",
+			ui = { label = "Enabled" },
+			diagnostic_key = "enabled",
+			path = "post.gtao", default = false,
+		},
+		{
+			id = "radius", type = "number",
+			ui = { label = "Radius", min = 0.01, max = 10, step = 0.01, scale = "log" },
+			diagnostic_key = "radius",
+			path = "post.gtao_radius", default = 0.5,
+			limits = { min = 0.001, max = 1000000 },
+		},
+		{
+			id = "intensity", type = "number",
+			ui = { label = "Intensity", min = 0, max = 4, step = 0.1 },
+			diagnostic_key = "intensity",
+			path = "post.gtao_intensity", default = 1,
+			limits = { min = 0, max = 4 },
+		},
+		{
+			id = "power", type = "number",
+			ui = { label = "Power", min = 0.1, max = 4, step = 0.1 },
+			diagnostic_key = "power",
+			path = "post.gtao_power", default = 1,
+			limits = { min = 0.1, max = 4 },
+		},
+		{
+			id = "bias", type = "number",
+			ui = { label = "Bias", min = 0, max = 0.25, step = 0.005 },
+			diagnostic_key = "bias",
+			path = "post.gtao_bias", default = 0.02,
+			limits = { min = 0, max = 0.25 },
+		},
+		{
+			id = "quality", type = "enum",
+			ui = { label = "Quality" },
+			diagnostic_key = "quality",
+			path = "post.gtao_quality", default = "medium",
+			options = { "low", "medium", "high", "ultra" },
+		},
+		{
+			id = "resolution", type = "number",
+			ui = { label = "Resolution scale", min = 0.25, max = 1, step = 0.25 },
+			diagnostic_key = "resolution",
+			path = "post.gtao_resolution", default = 0.5,
+			limits = { min = 0.25, max = 1 },
+		},
+	}
+end
+
+function M.get_debug_views()
+	return {
+		{
+			id = "gtao.filtered",
+			label = "AO",
+			description = "Filtered ambient visibility: white is unoccluded, dark is occluded.",
+			kind = "texture",
+		},
+		{
+			id = "gtao.raw",
+			label = "Raw AO",
+			description = "Ambient visibility before the depth-aware filter and upsampling.",
+			kind = "texture",
+		},
+		{
+			id = "gtao.depth",
+			label = "Scene depth",
+			description = "Logarithmic view-space depth used to reconstruct AO geometry.",
+			kind = "texture",
+		},
+	}
+end
+
+function M.get_debug_source(context, id)
+	local target
+	local width, height = state.width, state.height
+	local mode = "visibility"
+	if id == "gtao.filtered" then
+		target = state.filtered_target
+	elseif id == "gtao.raw" then
+		target = state.raw_target
+		width, height = state.raw_width, state.raw_height
+	elseif id == "gtao.depth" then
+		target = state.depth_target
+		mode = "depth"
+	else
+		return nil, "unknown GTAO debug view"
+	end
+
+	-- Allocations may survive camera loss or a failed fullscreen submission.
+	-- Only expose targets filled during this frame, never their old contents.
+	if not state.produced or state.produced_frame ~= context.frame or not target then
+		return nil, state.reason or "GTAO was not rendered this frame"
+	end
+	return {
+		target = target,
+		attachment = graphics.BUFFER_TYPE_COLOR0_BIT,
+		width = width,
+		height = height,
+		mode = mode,
+		far = state.produced_far,
+	}
 end
 
 function M.get_diagnostics()

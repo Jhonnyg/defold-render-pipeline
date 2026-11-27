@@ -31,6 +31,8 @@ class CompatibilityExport(unittest.TestCase):
             self.assertEqual((output / "scene.model").read_text(), scene)
             self.assertEqual((output / ".internal/lib/cached.zip").read_bytes(), cached.read_bytes())
             self.assertIn("clustered_resources = 0", (output / "game.project").read_text())
+            self.assertIn("default_profile = low", (output / "game.project").read_text())
+            self.assertIn("fallback_profile = low", (output / "game.project").read_text())
             self.assertIn("render = /drp/compatibility.renderc", (output / "game.project").read_text())
 
             # Walk the actual material/include/render dependencies, starting
